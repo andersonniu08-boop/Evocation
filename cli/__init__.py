@@ -1,1 +1,1 @@
-"""MemoryDog — memory-augmented coding agent."""
+"""MemoryDog CLI — Textual TUI frontend."""

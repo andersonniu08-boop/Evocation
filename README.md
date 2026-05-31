@@ -2,34 +2,21 @@
 
 A memory-augmented coding agent that gets better the longer you work with it.
 
-Unlike stateless coding agents constrained by context windows, MemoryDog remembers previous conversations, design decisions, bugs, implementation details, and project history across sessions.
-
-The mascot is a dog because the agent "fetches" memories.
-
 ```
 🐕 Fetching memories...
 🐕 Found related implementation from 12 days ago.
 🐕 I remember this project.
 ```
 
-## Features
-
-- **Persistent memory** — facts survive across sessions via PostgreSQL + pgvector
-- **Hybrid retrieval** — vector similarity + BM25 keyword search + recency + importance scoring
-- **Instincts** — user-defined reusable modules that guide agent behavior
-- **Multi-provider LLM** — OpenAI, Anthropic, Gemini, DeepSeek, Ollama via LiteLLM
-- **Developer TUI** — multi-pane Textual interface (conversation, file preview, tool output)
-- **6 tools** — read, write, edit, bash, glob, grep, plus memory_search
-
 ## Architecture
 
 ```
-CLI (Textual TUI + Agent Loop + Tools + Memory Layer)
-  │
-  └── asyncpg ── PostgreSQL 16 + pgvector
+memorydog-core/     Shared Python library (all business logic)
+memorydog-cli/      Textual TUI frontend (imports core)
+memorydog-vscode/   VS Code extension frontend (imports core)
 ```
 
-Single process. No server, no workers, no Redis. Direct database connection.
+Both frontends share one implementation of memory, retrieval, instincts, and agent behavior. Zero duplication.
 
 ## Quick Start
 
@@ -40,7 +27,7 @@ docker compose up -d
 # Configure
 dog config
 
-# Start coding
+# Start coding (CLI)
 dog chat
 ```
 

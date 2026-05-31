@@ -24,41 +24,40 @@ The mascot is a dog because the agent "fetches" memories.
 
 ## Architecture
 
-### Single-Process CLI
+### Architecture: Shared Core + Thin Frontends
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ memorydog CLI (single Python process)           │
+│ memorydog-core (Python package, zero UI)        │
 │ ┌─────────────────────────────────────────────┐ │
-│ │ Textual TUI                                  │ │
-│ │ ┌─────────────┬──────────────┬────────────┐ │ │
-│ │ │ Conversation│ File Preview │ Tool Output │ │ │
-│ │ └─────────────┴──────────────┴────────────┘ │ │
-│ │ 🐕 Status bar                                │ │
+│ │ Agent Loop  │ Memory CRUD │ Retrieval       │ │
+│ │ Tools (x7)  │ Ranking     │ Instinct Engine │ │
+│ │ Provider    │ Context     │ DB Layer        │ │
 │ └─────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Agent Loop                                   │ │
-│ │ Context Builder → LiteLLM → Tool Router      │ │
-│ │ Tools: read, write, edit, bash, glob, grep,  │ │
-│ │        memory_search                         │ │
-│ └─────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Memory Layer (inline)                        │ │
-│ │ Extraction → Embedding → Storage → Retrieval │ │
-│ │ Ranking: vector + BM25 + recency + importance│ │
-│ └─────────────────────────────────────────────┘ │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ Instinct Engine (TOML-based)                 │ │
-│ │ Load → Trigger Match → Activate → Bias      │ │
-│ └─────────────────────────────────────────────┘ │
-└──────────────────┬──────────────────────────────┘
-                   │ asyncpg
-                   ▼
+└──────────┬──────────────────────┬───────────────┘
+           │ imports              │ imports via subprocess
+           ▼                      ▼
+┌──────────────────────┐  ┌──────────────────────────┐
+│ memorydog-cli        │  │ memorydog-vscode          │
+│ Textual TUI frontend │  │ TypeScript extension      │
+│ • Multi-pane layout  │  │ • Sidebar memory browser  │
+│ • Conversation view  │  │ • Instinct viewer         │
+│ • File preview       │  │ • Animated dog mascot     │
+│ • Tool output        │  │ • Terminal integration    │
+│ • 🐕 Status bar      │  │ • Webview panels          │
+└──────────────────────┘  └──────────────────────────┘
+           │
+           │ asyncpg
+           ▼
 ┌─────────────────────────────────────────────────┐
 │ PostgreSQL 16 + pgvector (local, Docker)        │
 │ 5 tables, HNSW index, full-text search          │
 └─────────────────────────────────────────────────┘
 ```
+
+**Zero duplication.** One implementation of memory, retrieval, instincts, and agent behavior — shared by both frontends.
+
+**Why core+frontends split?** The agent logic is a reusable Python package. The CLI and VS Code extension are thin importers. This keeps all business logic in one place, prevents duplication, and lets the VS Code extension deliver a richer UX (animated dog, memory browser) without touching the core agent code.
 
 **Why no server?** The agent IS the product. A REST API adds 50% more code for zero interview value. PostgreSQL is fast enough for single-user workloads. If you ever need multi-user, the memory layer is already cleanly separated in `db.py` and `memory.py` — wrapping it in FastAPI later is straightforward.
 
@@ -365,7 +364,7 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 ---
 
-## Roadmap — 4 Weeks to Demo-Ready
+## Roadmap — 6 Weeks to Full Demo
 
 ### Week 1: Working Coding Agent
 
@@ -376,7 +375,7 @@ The persona appears in **chrome only** — never in agent responses to the user:
 - LiteLLM provider integration
 - 6 tools: read, write, edit, bash, glob, grep
 - Config: `~/.memorydog/config.toml`
-- `dog chat` command
+- `dog config`, `dog chat` commands
 
 **Resume bullet:** "Built a coding agent CLI with Textual TUI and LiteLLM multi-provider integration supporting 6 tools (read, write, edit, bash, glob, grep)."
 
@@ -408,9 +407,9 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 **Resume bullet:** "Implemented hybrid retrieval combining vector similarity, BM25 keyword search, recency weighting, and importance scoring with configurable ranking. Built an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior."
 
-### Week 4: TUI Polish + Demo
+### Week 4: TUI Polish + CLI Demo
 
-**Goal:** A polished, demo-ready product.
+**Goal:** A polished, demo-ready CLI product.
 
 - Multi-pane layout (conversation, file preview, tool output)
 - Plan visibility (Rich panel from JSON plan blocks)
@@ -420,6 +419,18 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 **Resume bullet:** "Developed a multi-pane developer TUI with real-time file preview, diff viewing, and memory/instinct status indicators."
 
+### Week 5-6: VS Code Extension
+
+**Goal:** A VS Code extension with animated dog mascot and memory browser.
+
+- Extension boilerplate (package.json, activation, commands)
+- Sidebar webview panels (memory browser, instinct viewer, dog status)
+- Animated dog mascot (idle, sniffing, excited, sleeping states via CSS/JS)
+- Python subprocess communication (stdin/stdout JSON-RPC)
+- Refactor into `memorydog-core` shared package
+
+**Resume bullet:** "Built a VS Code extension with animated mascot interface, sidebar memory browser, and instinct viewer — both frontends share a single memorydog-core Python library with zero logic duplication."
+
 ### Post-MVP (Optional)
 
 - Memory consolidation (summarization)
@@ -427,7 +438,6 @@ The persona appears in **chrome only** — never in agent responses to the user:
 - Behavioral pattern detection → automatic instinct generation
 - Cross-encoder reranking
 - Benchmarks (4-task suite)
-- Redis caching (only if needed)
 
 ---
 
@@ -455,27 +465,35 @@ openai, pydantic, pytest, pytest-asyncio, ruff
 
 ---
 
-## Folder Structure (MVP)
+## Folder Structure
 
 ```
-memorydog/
-├── cli/
-│   ├── main.py           # entry point, dog chat, dog config
-│   ├── app.py            # Textual app bootstrap
-│   ├── agent_loop.py     # core execution loop
-│   ├── context.py        # prompt construction
-│   ├── tools.py          # all 7 tools (read/write/edit/bash/glob/grep/memory_search)
-│   ├── provider.py       # LiteLLM wrapper
-│   ├── db.py             # PostgreSQL connection + queries
-│   ├── memory.py         # memory CRUD, extraction, retrieval
-│   ├── ranking.py        # hybrid ranking formula
-│   ├── instincts.py      # TOML loader, activation, bias
+memorydog/              # monorepo
+├── core/               # memorydog-core — shared Python package, zero UI
+│   ├── agent_loop.py
+│   ├── tools.py
+│   ├── provider.py
+│   ├── memory.py
+│   ├── retrieval.py
+│   ├── ranking.py
+│   ├── instincts.py
+│   ├── db.py
+│   └── context.py
+├── cli/                # memorydog-cli — Textual TUI frontend
+│   ├── main.py
+│   ├── app.py
 │   └── ui/
-│       ├── chat.py       # Textual screen
-│       └── widgets.py    # custom widgets
+│       ├── chat.py
+│       └── widgets.py
+├── vscode/             # memorydog-vscode — TypeScript extension
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── src/extension.ts
+│   ├── src/webview/
+│   └── assets/dog/
 ├── migrations/
 │   └── 001_init.sql
-├── docker-compose.yml    # PostgreSQL + pgvector only
+├── docker-compose.yml
 ├── pyproject.toml
 └── README.md
 ```

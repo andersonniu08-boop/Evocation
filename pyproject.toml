@@ -26,7 +26,7 @@ dev = [
 dog = "cli.main:main"
 
 [tool.ruff]
-line-length = 100
+line-height = 100
 target-version = "py311"
 
 [tool.ruff.lint]

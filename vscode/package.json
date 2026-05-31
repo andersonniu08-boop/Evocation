@@ -1,0 +1,59 @@
+{
+  "name": "memorydog",
+  "displayName": "MemoryDog",
+  "description": "A memory-augmented coding agent — persistent memory, hybrid retrieval, and instincts",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "memorydog.start",
+        "title": "MemoryDog: Start Agent"
+      },
+      {
+        "command": "memorydog.showMemoryPanel",
+        "title": "MemoryDog: Show Memory Browser"
+      },
+      {
+        "command": "memorydog.showInstinctPanel",
+        "title": "MemoryDog: Show Instincts"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "memorydog",
+          "title": "MemoryDog",
+          "icon": "assets/dog/idle.png"
+        }
+      ]
+    },
+    "views": {
+      "memorydog": [
+        {
+          "type": "webview",
+          "id": "memorydog.memoryPanel",
+          "name": "Memories"
+        },
+        {
+          "type": "webview",
+          "id": "memorydog.instinctPanel",
+          "name": "Instincts"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

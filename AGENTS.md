@@ -1,48 +1,55 @@
 # AGENTS.md — MemoryDog Development Guidelines
 
-## Project Context
-
-MemoryDog is a memory-augmented coding agent. It is a single-user CLI tool (Python) that connects directly to PostgreSQL + pgvector via asyncpg. No server, no Redis, no background workers in MVP.
-
 ## Architecture
 
 ```
-cli/main.py          — entry point, CLI args (dog chat, dog config)
-cli/app.py           — Textual app bootstrap
-cli/agent_loop.py    — core execution loop
-cli/context.py       — prompt construction
-cli/tools.py         — all 7 tools
-cli/provider.py      — LiteLLM wrapper
-cli/db.py            — PostgreSQL connection, queries
-cli/memory.py        — memory CRUD, extraction, retrieval
-cli/ranking.py       — hybrid ranking formula
-cli/instincts.py     — TOML loader, activation, retrieval bias
-cli/ui/chat.py       — Textual screen
-cli/ui/widgets.py    — custom widgets
+core/                MemoryDog Core — shared library, zero UI
+  agent_loop.py      Core execution loop
+  tools.py           All 7 tools (read, write, edit, bash, glob, grep, memory_search)
+  provider.py        LiteLLM wrapper
+  memory.py          Memory CRUD, extraction, retrieval
+  retrieval.py       Hybrid retrieval queries
+  ranking.py         Ranking formula
+  instincts.py       TOML loader, activation, bias
+  db.py              PostgreSQL connection, queries
+  context.py         Prompt construction
+
+cli/                 Textual TUI frontend (imports core)
+  main.py            Entry point (dog chat, dog config)
+  app.py             Textual app bootstrap
+  ui/chat.py         Chat screen
+  ui/widgets.py      Custom widgets
+
+vscode/              VS Code extension (TypeScript)
+  src/extension.ts   Extension entry, terminal + webview
+  src/webview/       Sidebar panels (HTML/JS)
+  assets/dog/        Animated mascot assets
 ```
+
+**Both frontends import `core/`.** No duplication of agent logic, memory, retrieval, or instincts.
 
 ## Conventions
 
 - Python 3.11+, async where possible
-- asyncpg for database, not SQLAlchemy ORM (raw SQL preferred for simplicity)
-- LiteLLM for all LLM calls (never call OpenAI/Anthropic directly)
+- asyncpg for database (raw SQL, not SQLAlchemy ORM)
+- LiteLLM for all LLM calls — never call OpenAI/Anthropic directly
 - TOML for config and instincts (tomllib in stdlib)
 - Ruff for linting, pytest for testing
-- Dog persona emoji (🐕) in status messages only — never in agent responses to user
-- Status messages go through a `status(message)` helper, not direct print
+- 🐕 Dog persona in status chrome only — never in agent responses to user
+- Status messages through `dog_status(message)` helper, not direct print
+
+## MVP Scope
+
+Do not add (yet):
+- FastAPI, Flask, or any server
+- Redis, message queues, background workers
+- Multi-user, auth, API keys
+- Memory relations, confidence scoring
+- Automatic instinct generation
 
 ## Design Spec
 
 Read `docs/specs/2026-05-31-memorydog-mvp.md` before making architectural changes.
-
-## MVP Scope
-
-4-week target. Do not add:
-- Servers (FastAPI, Flask)
-- Redis, message queues, background workers
-- Multi-user, auth, API keys
-- Complex memory relations or confidence scoring
-- Automatic instinct generation
 
 ## Testing
 
@@ -53,5 +60,5 @@ pytest tests/
 ## Linting
 
 ```bash
-ruff check cli/ tests/
+ruff check core/ cli/ tests/
 ```
