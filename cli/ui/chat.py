@@ -61,6 +61,21 @@ class ChatScreen(Screen):
 
         conv = self.query_one("#conversation", RichLog)
         conv.write("[bold blue]🐕 MemoryDog ready.[/]")
+
+        if self.state and self.state.workspace:
+            try:
+                from core.memory import count_memories
+
+                count = await count_memories(self.state.workspace)
+                if count > 0:
+                    conv.write(
+                        f"[dim]🐕 I remember this project."
+                        f" {count} memories from previous sessions.[/]"
+                    )
+                    self.status.memory_count = count
+            except Exception:
+                pass
+
         self._show_status(conv)
 
         self.query_one("#user-input", Input).focus()

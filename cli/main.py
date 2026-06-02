@@ -188,7 +188,6 @@ def _run_status():
     print("\n\U0001F415 MemoryDog Status\n")
     print(f"  Provider: {config.provider.model}")
     print(f"  Embedding: {config.embedding.model}")
-    print(f"  Database: {config.database.url[:50]}...")
     print(f"  Instincts: {len(instincts)} loaded")
     print("  Config: ~/.memorydog/config.toml")
     print("  Instincts file: ~/.memorydog/instincts.toml")
@@ -198,6 +197,29 @@ def _run_status():
     else:
         masked = config.provider.api_key[:4] + "..." + config.provider.api_key[-4:]
         print(f"  API Key: {masked}")
+
+    _check_db()
+
+
+def _check_db():
+    try:
+        import asyncio
+
+        async def check():
+            from core.db import get_pool, init_db
+
+            pool = await get_pool()
+            async with pool.acquire() as conn:
+                await conn.fetchrow("SELECT 1")
+            await init_db()
+
+        asyncio.run(check())
+        print("  \u2705 Database: connected and migrated")
+    except Exception:
+        print(
+            "  \u2753 Database: not available"
+            " (install Docker and run: docker compose up)"
+        )
 
 
 def _mask(key: str) -> str:
