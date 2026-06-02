@@ -9,19 +9,42 @@ class MemoryDogApp(App):
     """MemoryDog Textual application."""
 
     CSS = """
+    #main-layout {
+        height: 1fr;
+    }
+    #left-pane {
+        width: 2fr;
+        height: 100%;
+        border: solid $primary;
+    }
+    #right-pane {
+        width: 1fr;
+        height: 100%;
+        border: solid $primary 40%;
+        padding: 0 1;
+        display: block;
+    }
     #conversation {
         height: 1fr;
-        border: solid $primary;
-        padding: 1;
+        border: none;
+    }
+    #file-preview {
+        height: 1fr;
+        border: solid $primary 50%;
+    }
+    #tool-output {
+        height: 1fr;
+        border: solid $secondary 50%;
     }
     #user-input {
         dock: bottom;
-        margin: 1 0 0 0;
+        margin: 1 0;
     }
     StatusBar {
         dock: bottom;
         height: 1;
         background: $panel;
+        border-top: solid $primary;
     }
     """
 

@@ -1,19 +1,22 @@
-"""Chat screen — conversation pane, input, status bar."""
+"""Chat screen — multi-pane layout with conversation, file preview, tool output."""
+import json
 import os
 
+from textual.containers import Container, Horizontal
 from textual.screen import Screen
 from textual.widgets import Header, Input, RichLog
 
-from cli.ui.widgets import StatusBar
+from cli.ui.widgets import DiffPreview, PlanPanel, StatusBar, ToolOutput
 from core.provider import BaseProvider, MockProvider
 
 
 class ChatScreen(Screen):
-    """Main chat interface."""
+    """Main chat interface with multi-pane layout."""
 
     BINDINGS = [
         ("ctrl+q", "quit", "Quit"),
         ("ctrl+s", "focus_input", "Focus Input"),
+        ("ctrl+p", "toggle_panels", "Toggle Panels"),
     ]
 
     def __init__(
@@ -26,16 +29,25 @@ class ChatScreen(Screen):
         self.workspace = workspace
         self.provider = provider or MockProvider()
         self.model_name = model_name
-        self.state = None  # set in on_mount
+        self.state = None
         self.total_tokens = 0
         ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
         self.status = StatusBar()
         self.status.workspace = ws_name
         self.status.model = model_name
+        self._panels_visible = True
 
     def compose(self):
         yield Header(show_clock=True)
-        yield RichLog(id="conversation", highlight=True, markup=True, wrap=True)
+        with Horizontal(id="main-layout"):
+            with Container(id="left-pane"):
+                yield PlanPanel(id="plan-panel")
+                yield RichLog(
+                    id="conversation", highlight=True, markup=True, wrap=True
+                )
+            with Container(id="right-pane"):
+                yield DiffPreview(id="file-preview")
+                yield ToolOutput(id="tool-output")
         yield self.status
         yield Input(placeholder="> Type your message...", id="user-input")
 
@@ -65,7 +77,6 @@ class ChatScreen(Screen):
 
         if self.state is None:
             from core.agent_loop import AgentState
-            from core.provider import MockProvider
 
             self.provider = self.provider or MockProvider()
             ws = os.path.basename(os.path.abspath(self.workspace)) or self.workspace
@@ -83,13 +94,58 @@ class ChatScreen(Screen):
         for msg in pop_status():
             conv.write(f"[dim]🐕 {msg}[/]")
 
+        self._maybe_show_plan(conv, response_text)
         conv.write(f"[bold green]MemoryDog:[/] {response_text}")
 
         self.total_tokens += self.provider.last_tokens
         await self._refresh_memory_counts()
+        await self._update_preview(conv)
+
         conv.scroll_end()
         event.input.disabled = False
         event.input.focus()
+
+    def _maybe_show_plan(self, conv: RichLog, text: str):
+        try:
+            if "```json" in text:
+                start = text.index("```json") + 7
+                end = text.index("```", start)
+                plan_data = json.loads(text[start:end])
+                if "plan" in plan_data:
+                    steps = plan_data["plan"]
+                    self.query_one("#plan-panel", PlanPanel).show_plan(steps)
+        except (ValueError, json.JSONDecodeError, KeyError):
+            pass
+
+    async def _update_preview(self, conv: RichLog):
+
+        if not self.state or not self.state.history:
+            return
+
+        last_tool = None
+        for msg in reversed(self.state.history):
+            if msg.role == "tool":
+                last_tool = msg.content
+                break
+
+        if last_tool:
+            try:
+                results = eval(last_tool)
+                if results:
+                    for item in results:
+                        res = item.get("result", item)
+                        if isinstance(res, dict) and res.get("success"):
+                            if "content" in res:
+                                preview = self.query_one("#file-preview", DiffPreview)
+                                preview.show_content(
+                                    "File Content",
+                                    res["content"][:1000],
+                                )
+                            elif "stdout" in res and res["stdout"].strip():
+                                output = self.query_one("#tool-output", ToolOutput)
+                                output.show_result("command", res["stdout"])
+            except Exception:
+                pass
 
     def _show_status(self, conv: RichLog):
         if self.state and self.state.active_instincts:
@@ -108,3 +164,8 @@ class ChatScreen(Screen):
 
     def action_focus_input(self):
         self.query_one("#user-input", Input).focus()
+
+    def action_toggle_panels(self):
+        right = self.query_one("#right-pane", Container)
+        right.display = not right.display
+        self._panels_visible = not self._panels_visible
