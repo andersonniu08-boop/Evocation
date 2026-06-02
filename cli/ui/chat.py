@@ -64,6 +64,8 @@ class ChatScreen(Screen):
         self._show_status(conv)
 
         self.query_one("#user-input", Input).focus()
+        self._start_time = __import__("time").time()
+        self.set_interval(30, self._update_session_time)
 
     async def on_input_submitted(self, event: Input.Submitted):
         text = event.value.strip()
@@ -169,3 +171,8 @@ class ChatScreen(Screen):
         right = self.query_one("#right-pane", Container)
         right.display = not right.display
         self._panels_visible = not self._panels_visible
+
+    def _update_session_time(self):
+        elapsed = int(__import__("time").time() - self._start_time)
+        minutes = elapsed // 60
+        self.status.session_time = f"{minutes}m"

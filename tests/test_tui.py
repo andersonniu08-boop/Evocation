@@ -138,6 +138,32 @@ def test_make_mock_provider():
     assert isinstance(provider, MockProvider)
 
 
+def test_dog_status_runs():
+    old = sys.argv
+    sys.argv = ["dog", "status"]
+    try:
+        from cli.main import main
+
+        main()
+    except SystemExit:
+        pass
+    finally:
+        sys.argv = old
+
+
+def test_dog_instinct_list_runs():
+    old = sys.argv
+    sys.argv = ["dog", "instinct", "list"]
+    try:
+        from cli.main import main
+
+        main()
+    except SystemExit:
+        pass
+    finally:
+        sys.argv = old
+
+
 def test_ranking_formula():
     from core.ranking import score_memory
 
