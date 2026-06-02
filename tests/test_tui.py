@@ -72,20 +72,20 @@ def test_execute_read_returns_file_content(tmp_path):
     assert "hello world" in result["content"]
 
 
-def test_run_turn_returns_response():
+async def test_run_turn_returns_response():
     provider = MockProvider()
     state = AgentState()
-    response = run_turn(provider, state, "Hello")
+    response = await run_turn(provider, state, "Hello")
     assert response
     assert "Hello" in response or "I'm MemoryDog" in response
     assert len(state.history) >= 1
 
 
-def test_run_turn_maintains_history():
+async def test_run_turn_maintains_history():
     provider = MockProvider()
     state = AgentState()
-    run_turn(provider, state, "hi")
-    run_turn(provider, state, "what's up")
+    await run_turn(provider, state, "hi")
+    await run_turn(provider, state, "what's up")
     assert len(state.history) >= 2
 
 
@@ -136,3 +136,62 @@ def test_make_mock_provider():
     from core.provider import MockProvider
 
     assert isinstance(provider, MockProvider)
+
+
+def test_ranking_formula():
+    from core.ranking import score_memory
+
+    s = score_memory(
+        vector_score=0.8,
+        bm25_score=0.6,
+        days_since_access=0,
+        importance=0.9,
+        decay_factor=1.0,
+        same_workspace=True,
+        access_count=10,
+        mean_access_count=5.0,
+    )
+    assert 0 < s < 1.5
+
+
+def test_ranking_penalizes_old_memories():
+    from core.ranking import score_memory
+
+    recent = score_memory(0.8, 0.6, 0, 0.5, 1.0, True, 5, 5.0)
+    old = score_memory(0.8, 0.6, 100, 0.5, 1.0, True, 5, 5.0)
+    assert recent > old
+
+
+def test_ranking_boosts_same_workspace():
+    from core.ranking import score_memory
+
+    same = score_memory(0.8, 0.6, 0, 0.5, 1.0, True, 5, 5.0)
+    diff = score_memory(0.8, 0.6, 0, 0.5, 1.0, False, 5, 5.0)
+    assert same > diff
+
+
+def test_load_instincts():
+    from core.instincts import load_instincts
+
+    instincts = load_instincts()
+    assert len(instincts) >= 3
+    names = [i.name for i in instincts]
+    assert "Bug Hunter" in names
+    assert "AI Evaluation Expert" in names
+
+
+def test_match_instincts():
+    from core.instincts import load_instincts, match_instincts
+
+    instincts = load_instincts()
+    matched = match_instincts(instincts, "there is a race condition bug", "test-project")
+    assert len(matched) > 0
+    assert matched[0][0].name == "Bug Hunter"
+
+
+def test_instinct_no_match():
+    from core.instincts import load_instincts, match_instincts
+
+    instincts = load_instincts()
+    matched = match_instincts(instincts, "hello world", "test-project")
+    assert len(matched) == 0
