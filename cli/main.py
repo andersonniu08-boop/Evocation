@@ -28,6 +28,9 @@ def main():
     edit_parser = instinct_sub.add_parser("edit", help="Open instincts file in editor")
     edit_parser.add_argument("--editor", help="Editor command (default: $EDITOR or nano)")
 
+    serve_parser = sub.add_parser("serve", help="Start JSON-RPC bridge for VS Code extension")
+    serve_parser.add_argument("-w", "--workspace", default=".", help="Workspace path")
+
     sub.add_parser("install", help="Install dog to ~/.local/bin")
 
     args = parser.parse_args()
@@ -62,6 +65,13 @@ def main():
 
     elif args.command == "instinct":
         _run_instinct_cmd(args)
+
+    elif args.command == "serve":
+        import asyncio
+
+        from core.bridge import serve
+
+        asyncio.run(serve())
 
     elif args.command == "install":
         _run_install()

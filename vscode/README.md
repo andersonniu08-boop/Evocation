@@ -1,6 +1,8 @@
 # MemoryDog — VS Code Extension
 
-A memory-augmented coding agent with persistent memory, hybrid retrieval, and an animated dog mascot.
+A memory-augmented coding agent that remembers past conversations, design decisions,
+bugs, and project history across sessions. Unlike stateless agents, MemoryDog gets
+better the longer you work with it.
 
 ## Quick Install
 
@@ -11,32 +13,39 @@ A memory-augmented coding agent with persistent memory, hybrid retrieval, and an
 code --install-extension memorydog-0.1.0.vsix
 ```
 
-Or install via VS Code UI:
-1. Open VS Code
-2. Go to Extensions view (Ctrl+Shift+X)
-3. Click "..." → "Install from VSIX..."
-4. Select the `.vsix` file
+Or via VS Code UI: Extensions → "..." → "Install from VSIX..."
+
+## Getting Started
+
+1. Install the extension
+2. Click the 🐕 icon in the Activity Bar
+3. Open the **Chat** panel
+4. Enter your API key when prompted (or set it in VS Code Settings → `memorydog.apiKey`)
+5. Start chatting — MemoryDog remembers conversations across sessions
 
 ## Requirements
 
+- **Python 3.11+** with MemoryDog installed (`pip install -e .` from the repo root)
+- **PostgreSQL 16 + pgvector** — run `docker compose up` from the repo root
+- **Ollama** with `nomic-embed-text` — `ollama pull nomic-embed-text`
 - **VS Code** 1.85.0 or later
-- **Python 3.11+** with MemoryDog core installed (`pip install memorydog` or from source)
-- **PostgreSQL 16 + pgvector** (or Docker for `docker compose up`)
-- **Ollama** with `nomic-embed-text` (`ollama pull nomic-embed-text`)
 
 ## Features
 
-- **🐕 Animated Dog Mascot** — Pure CSS dog with idle, sniffing, excited, and sleeping states
-- **📚 Memory Browser** — Browse persistent memories in PostgreSQL, filter by workspace
+- **💬 Chat** — Full conversation with streaming responses, status updates, and tool execution
+- **📚 Memory Browser** — Browse persistent memories from PostgreSQL, filter by workspace
 - **⚡ Instinct Viewer** — View loaded instincts from `~/.memorydog/instincts.toml`
-- **💬 Chat Terminal** — Launch the MemoryDog CLI agent in an integrated terminal
+- **🐕 Animated Mascot** — CSS dog with idle, sniffing, excited, and sleeping states
+- **📊 Status Bar** — Live memory count, instinct count, workspace awareness
 
-## Usage
+## Configuration
 
-1. Click the **🐕 MemoryDog** icon in the Activity Bar (left sidebar)
-2. Use the **Mascot**, **Memories**, and **Instincts** panels
-3. Click **"🐕 Ready"** in the status bar for quick actions
-4. Select **"Start Chat"** to open the MemoryDog terminal
+Set your API key in VS Code Settings (`Cmd+,`):
+
+- `memorydog.apiKey` — Your LLM provider API key
+- `memorydog.model` — LiteLLM model string (default: `deepseek/deepseek-chat`)
+
+Or run `dog config` in the terminal for the interactive wizard.
 
 ## Building from Source
 
@@ -47,3 +56,28 @@ npm run compile
 npx @vscode/vsce package
 code --install-extension memorydog-0.1.0.vsix
 ```
+
+## Architecture
+
+```
+VS Code Extension (TypeScript)
+  ├── Chat panel (webview)      ← primary UI
+  ├── Memory browser (webview)  ← live PostgreSQL data
+  ├── Instinct viewer (webview) ← TOML instinct config
+  └── Dog mascot (webview)      ← animated status indicator
+        │
+        │ JSON-RPC over stdin/stdout
+        ▼
+Python Core (memorydog-core)
+  ├── Agent loop, tools (7), provider (LiteLLM)
+  ├── Memory CRUD, extraction, embeddings (Ollama)
+  ├── Hybrid retrieval (vector + FTS + ranking)
+  └── Instinct engine (TOML triggers + bias)
+        │
+        │ asyncpg
+        ▼
+PostgreSQL 16 + pgvector
+```
+
+The extension communicates with the Python core via `dog serve` — a local
+JSON-RPC subprocess. No HTTP server, no Redis, no background workers.

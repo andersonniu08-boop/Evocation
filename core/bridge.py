@@ -1,0 +1,274 @@
+"""JSON-RPC bridge for VS Code extension — stdin/stdout protocol.
+
+The extension spawns `dog serve` as a subprocess and communicates via
+newline-delimited JSON-RPC 2.0 messages.
+
+Streaming chat uses JSON-RPC notifications:
+  → {"jsonrpc":"2.0","method":"status","params":{"message":"..."}}
+  → {"jsonrpc":"2.0","method":"token","params":{"token":"..."}}
+  ← {"jsonrpc":"2.0","id":1,"result":{"content":"..."}}
+"""
+
+import asyncio
+import json
+import sys
+import traceback
+from typing import Any
+
+
+async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
+    """Dispatch a JSON-RPC method to the appropriate handler."""
+    if method == "chat":
+        return await handle_chat(params, msg_id)
+    elif method == "get_memories":
+        return await handle_get_memories(params)
+    elif method == "get_instincts":
+        return await handle_get_instincts()
+    elif method == "get_status":
+        return await handle_get_status(params)
+    elif method == "set_config":
+        return await handle_set_config(params)
+    elif method == "ping":
+        return {"pong": True}
+    else:
+        return {"error": f"Unknown method: {method}"}
+
+
+async def handle_chat(params: dict, msg_id: Any) -> dict:
+    """Run a chat turn with streaming status + token notifications."""
+    from core.agent_loop import AgentState, init_agent, run_turn
+    from core.provider import LiteLLMProvider
+
+    user_input = params.get("user_input", "")
+    workspace = params.get("workspace", ".")
+    model_override = params.get("model")
+
+    if not user_input.strip():
+        return {"error": "user_input is required"}
+
+    # Initialize or reuse agent state (simple: new state per chat for now)
+    import os
+
+    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+    state = AgentState(workspace=ws_name)
+
+    try:
+        await init_agent(workspace)
+    except Exception:
+        pass  # DB might not be available, continue
+
+    from core.config import load_config
+
+    config = load_config()
+    pc = config.provider
+    model = model_override or pc.model
+    provider = LiteLLMProvider(
+        model=model,
+        api_key=pc.api_key,
+        api_base=pc.api_base or None,
+    )
+
+    def on_status(msg: str):
+        _notify("status", {"message": msg})
+
+    def on_token(token: str):
+        _notify("token", {"token": token})
+
+    try:
+        response = await run_turn(
+            provider,
+            state,
+            user_input,
+            on_status=on_status,
+            on_token=on_token,
+        )
+        return {"content": response}
+    except Exception as e:
+        return {"error": str(e), "content": ""}
+
+
+async def handle_get_memories(params: dict) -> dict:
+    """Return memories for the given workspace."""
+    from core.memory import count_memories, generate_embedding
+    from core.retrieval import retrieve_memories
+
+    workspace = params.get("workspace", ".")
+    query = params.get("query", "")
+    limit = int(params.get("limit", 20))
+
+    import os
+
+    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+
+    try:
+        embedding = await generate_embedding(query) if query else None
+        results = await retrieve_memories(
+            query=query or " ",
+            workspace=ws_name,
+            query_embedding=embedding,
+            limit=limit,
+        )
+        total = await count_memories(ws_name)
+
+        memories = []
+        for r in results:
+            memories.append(
+                {
+                    "id": str(r.get("id", "")),
+                    "content": r.get("content", ""),
+                    "summary": r.get("summary", ""),
+                    "memory_type": r.get("memory_type", "conversation"),
+                    "workspace": r.get("workspace_name", ws_name),
+                    "importance": float(r.get("importance", 0.5)),
+                }
+            )
+
+        return {"memories": memories, "total": total}
+    except Exception as e:
+        return {"memories": [], "total": 0, "error": str(e)}
+
+
+async def handle_get_instincts() -> dict:
+    """Return all loaded instincts."""
+    from core.instincts import load_instincts
+
+    try:
+        instincts = load_instincts()
+        result = []
+        for i in instincts:
+            result.append(
+                {
+                    "name": i.name,
+                    "description": i.description,
+                    "triggers": i.triggers,
+                    "prompt": i.prompt,
+                    "retrieval_bias": i.retrieval_bias,
+                }
+            )
+        return {"instincts": result}
+    except Exception as e:
+        return {"instincts": [], "error": str(e)}
+
+
+async def handle_get_status(params: dict) -> dict:
+    """Return current status: workspace, memory count, provider, model."""
+    from core.config import load_config
+    from core.instincts import load_instincts
+
+    workspace = params.get("workspace", ".")
+
+    import os
+
+    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+
+    result = {
+        "workspace": ws_name,
+        "memory_count": 0,
+        "instinct_count": 0,
+        "provider": "unknown",
+        "model": "unknown",
+    }
+
+    try:
+        config = load_config()
+        result["provider"] = config.provider.model.split("/")[0] if "/" in config.provider.model else config.provider.model
+        result["model"] = config.provider.model
+    except Exception:
+        pass
+
+    try:
+        instincts = load_instincts()
+        result["instinct_count"] = len(instincts)
+    except Exception:
+        pass
+
+    try:
+        from core.memory import count_memories
+
+        result["memory_count"] = await count_memories(ws_name)
+    except Exception:
+        pass
+
+    return result
+
+
+async def handle_set_config(params: dict) -> dict:
+    """Save API key and/or model to config."""
+    from core.config import load_config, save_config
+
+    try:
+        config = load_config()
+    except Exception:
+        from core.config import Config
+
+        config = Config()
+
+    if "api_key" in params and params["api_key"]:
+        config.provider.api_key = params["api_key"]
+    if "model" in params and params["model"]:
+        config.provider.model = params["model"]
+
+    save_config(config)
+    return {"success": True}
+
+
+def _notify(method: str, params: dict):
+    """Write a JSON-RPC notification to stdout (no id)."""
+    msg = json.dumps({"jsonrpc": "2.0", "method": method, "params": params})
+    sys.stdout.write(msg + "\n")
+    sys.stdout.flush()
+
+
+def _write_response(msg_id: Any, result: dict):
+    """Write a JSON-RPC response to stdout."""
+    resp = {"jsonrpc": "2.0", "id": msg_id, "result": result}
+    sys.stdout.write(json.dumps(resp) + "\n")
+    sys.stdout.flush()
+
+
+def _write_error(msg_id: Any, code: int, message: str):
+    """Write a JSON-RPC error response."""
+    resp = {"jsonrpc": "2.0", "id": msg_id, "error": {"code": code, "message": message}}
+    sys.stdout.write(json.dumps(resp) + "\n")
+    sys.stdout.flush()
+
+
+async def serve():
+    """Main loop: read JSON-RPC from stdin, dispatch, write responses to stdout."""
+    loop = asyncio.get_event_loop()
+
+    while True:
+        # Read a line from stdin in a thread (avoid asyncio pipe complexity)
+        try:
+            line = await loop.run_in_executor(None, sys.stdin.readline)
+        except Exception:
+            break
+
+        if not line:
+            break  # EOF — extension closed
+
+        line_str = line.strip()
+        if not line_str:
+            continue
+
+        try:
+            msg = json.loads(line_str)
+        except json.JSONDecodeError:
+            _write_error(None, -32700, "Parse error")
+            continue
+
+        msg_id = msg.get("id")
+        method = msg.get("method", "")
+        params = msg.get("params", {})
+
+        try:
+            result = await handle_request(method, params, msg_id)
+            if result is not None:
+                _write_response(msg_id, result)
+        except Exception as e:
+            _write_error(msg_id, -32603, str(e))
+            traceback.print_exc(file=sys.stderr)
+
+
+if __name__ == "__main__":
+    asyncio.run(serve())

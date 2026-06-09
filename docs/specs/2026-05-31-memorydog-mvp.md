@@ -1,8 +1,8 @@
-# MemoryDog MVP — Design Specification
+# MemoryDog — Design Specification
 
-**Date:** 2026-05-31
-**Status:** Design Complete
-**Target:** 4 weeks to demo-ready, single-student buildable
+**Date:** 2026-06-09
+**Status:** Core Pipeline Complete — VS Code Extension Focus
+**Target:** VS Code extension MVP
 
 ## Overview
 
@@ -10,21 +10,25 @@ MemoryDog is a memory-augmented coding agent that gets better the longer you wor
 
 The mascot is a dog because the agent "fetches" memories.
 
-**MVP scope:** A single-user CLI tool that connects directly to a local PostgreSQL database. No server, no Redis, no workers, no multi-tenancy. Maximum resume value per week of work.
+**MVP scope:** A shared `memorydog-core` Python library (persistent memory, hybrid retrieval, instincts, tool execution, multi-provider LLM) with two frontends:
+- `memorydog-cli`: Textual TUI for development and debugging
+- `memorydog-vscode`: VS Code extension with sidebar panels (chat, memory browser, instinct viewer, animated mascot)
+
+The core value proposition — cross-session persistent memory — is verified and working. Current focus is packaging the VS Code extension as the primary user-facing product.
 
 ### Core Differentiators
 
 1. **Persistent memory** — facts survive across sessions, not just within a context window
 2. **Hybrid retrieval** — vector similarity + keyword search + recency + importance
 3. **Instincts** — user-defined reusable procedural modules that guide agent behavior
-4. **Developer TUI** — multi-pane Textual interface, not a chat terminal
-5. **Dog persona** — professional UX with personality in the chrome
+4. **Dual frontend** — VS Code extension + Textual CLI sharing a single core library
+5. **Dog persona** — animated mascot in VS Code sidebar, professional UX in chrome
 
 ---
 
 ## Architecture
 
-### Architecture: Shared Core + Thin Frontends
+### Architecture: Shared Core + Thin Frontends (Zero Duplication)
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -34,18 +38,19 @@ The mascot is a dog because the agent "fetches" memories.
 │ │ Tools (x7)  │ Ranking     │ Instinct Engine │ │
 │ │ Provider    │ Context     │ DB Layer        │ │
 │ └─────────────────────────────────────────────┘ │
-└──────────┬──────────────────────┬───────────────┘
-           │ imports              │ imports via subprocess
-           ▼                      ▼
-┌──────────────────────┐  ┌──────────────────────────┐
-│ memorydog-cli        │  │ memorydog-vscode          │
-│ Textual TUI frontend │  │ TypeScript extension      │
-│ • Multi-pane layout  │  │ • Sidebar memory browser  │
-│ • Conversation view  │  │ • Instinct viewer         │
-│ • File preview       │  │ • Animated dog mascot     │
-│ • Tool output        │  │ • Terminal integration    │
-│ • 🐕 Status bar      │  │ • Webview panels          │
-└──────────────────────┘  └──────────────────────────┘
+└──────────┬──────────────────┬───────────────────┘
+           │ imports          │ subprocess bridge
+           ▼                  ▼
+┌──────────────────────┐  ┌────────────────────────────┐
+│ memorydog-cli        │  │ memorydog-vscode            │
+│ Textual TUI frontend │  │ TypeScript extension        │
+│ • Multi-pane layout  │  │ • Bridge: Python subprocess │
+│ • Conversation view  │  │ • Chat webview with stream │
+│ • File preview       │  │ • Memory browser panel     │
+│ • Tool output        │  │ • Instinct viewer panel    │
+│ • 🐕 Status bar      │  │ • Animated dog mascot      │
+└──────────────────────┘  │ • Status bar integration  │
+                          └────────────────────────────┘
            │
            │ asyncpg
            ▼
@@ -140,7 +145,7 @@ CREATE TABLE user_preferences (
 
 `workspace_name` is derived from the current directory name or git repo name. It scopes memory retrieval with a ranking boost — not a hard filter:
 
-- Same workspace: **1.5x** score multiplier
+- Same workspace: **2.0x** score multiplier
 - Different workspace: **1.0x** score multiplier
 - Cross-workspace retrieval works but prefers local context
 
@@ -194,10 +199,10 @@ Full consolidation, archival, and contradiction detection are deferred to post-M
 
 ## Retrieval Pipeline
 
-### Hybrid Ranking Formula
+### Hybrid Ranking Formula (Current)
 
 ```
-Score(m, q) = 0.35·V + 0.20·B + 0.15·R + 0.15·I + 0.10·W + 0.05·F
+Score(m, q) = 0.25·V + 0.20·B + 0.15·R + 0.15·I + 0.20·W + 0.05·F
 ```
 
 | Term | Definition |
@@ -242,11 +247,11 @@ combined AS (
 )
 SELECT id, content, summary, memory_type, workspace_name,
        vector_score, bm25_score,
-       (0.35 * COALESCE(vector_score, 0) +
+       (0.25 * COALESCE(vector_score, 0) +
         0.20 * COALESCE(bm25_score, 0) +
         0.15 * EXP(-0.01 * EXTRACT(DAY FROM NOW() - last_accessed)) +
         0.15 * (importance * decay_factor) +
-        0.10 * CASE WHEN workspace_name = $current_workspace THEN 1.5 ELSE 1.0 END +
+        0.20 * CASE WHEN workspace_name = $current_workspace THEN 2.0 ELSE 1.0 END +
         0.05 * (1.0 / (1.0 + EXP(-(access_count - $mean_access) / $mean_access)))
        ) AS final_score
 FROM combined
@@ -364,6 +369,83 @@ At the start of each agent turn:
 
 ---
 
+## VS Code Extension
+
+### Architecture: Subprocess Bridge
+
+MemoryDog's VS Code extension communicates with the Python core via a `MemoryDogBridge` — a subprocess manager that spawns `memorydog-core` as a child process and communicates over stdin/stdout JSON-RPC.
+
+```
+VS Code Extension (TypeScript)
+  │
+  ├── ChatViewProvider       — sidebar webview, streaming tokens
+  ├── MemoryPanelProvider    — browse/search memories
+  ├── InstinctPanelProvider  — view loaded instincts
+  ├── DogViewProvider        — animated mascot (CSS states)
+  ├── StatusBar              — memory count, instinct count, workspace
+  └── MemoryDogBridge        — stdin/stdout JSON-RPC to Python
+        │
+        ▼
+Python subprocess (memorydog-core)
+  │
+  ├── agent_loop.run_turn()  — full agent pipeline
+  ├── memory.*               — CRUD, extraction, embedding
+  ├── retrieval.*            — hybrid search, ranking
+  └── instincts.*            — TOML loading, matching
+```
+
+### Bridge Protocol
+
+The bridge uses JSON-RPC over stdin/stdout. Each request is a JSON line:
+
+```json
+{"id": 1, "method": "chat", "params": {"text": "Hello", "workspace": "my-project"}}
+```
+
+The Python process writes JSON response lines:
+
+```json
+{"id": 1, "result": {"content": "Hello! How can I help?"}}
+```
+
+For streaming, status messages are sent as separate JSON lines:
+
+```json
+{"type": "status", "text": "Fetching memories..."}
+{"type": "token", "text": "Based"}
+{"type": "token", "text": " on"}
+```
+
+### Extension Capabilities
+
+| Feature | Implementation |
+|---------|---------------|
+| **Chat** | Webview with message history, input box, streaming token display. Bridge handles `run_turn()` pipeline — status messages update UI in real time, tokens stream as they arrive. |
+| **Memory browser** | Webview listing memories with workspace filter, search, type badges, importance indicators. Data fetched via bridge `getMemories()` which calls `retrieve_memories()` in core. |
+| **Instinct viewer** | Webview showing loaded instincts, trigger keywords, activation status. Data from bridge `getInstincts()` which reads `~/.memorydog/instincts.toml`. |
+| **Dog mascot** | CSS-animated dog with 4 states: idle (resting), sniffing (searching), excited (found something), sleeping (bridge down). States driven by status message keywords from the bridge. |
+| **Status bar** | Shows `🐕 N memories | M instincts` updated every 30s via bridge `getStatus()`. |
+
+### Packaging
+
+The extension is packaged with `vsce package`:
+```bash
+cd vscode
+npx @vscode/vsce package
+# → memorydog-0.1.0.vsix (12KB, 10 files)
+```
+
+### Configuration
+
+Users set their API key via:
+1. The extension's config command (stored in VS Code settings under `memorydog.*`)
+2. The chat panel's setup screen
+3. Directly via VS Code settings UI
+
+The bridge syncs the key to `~/.memorydog/config.toml` on startup.
+
+---
+
 ## Agent Behavior
 
 ### Execution Loop
@@ -414,80 +496,51 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 ---
 
-## Roadmap — 6 Weeks to Full Demo
+## Roadmap — Current State
 
-### Week 1: Working Coding Agent
+### ✅ Complete: Core Pipeline (Weeks 1-3)
 
-**Goal:** A CLI coding agent that edits code, runs commands, and fixes bugs via LiteLLM.
+**Persistent memory, hybrid retrieval, instincts, tool system, embeddings, cross-session recall.**
 
-- Textual TUI with conversation pane
-- Agent loop (user → LLM → tool → LLM → response)
-- LiteLLM provider integration
-- 6 tools: read, write, edit, bash, glob, grep
-- Config: `~/.memorydog/config.toml`
-- `dog config`, `dog chat` commands
+- LiteLLM multi-provider integration (DeepSeek, OpenAI, etc.)
+- Textual TUI with multi-pane layout, streaming, status bar
+- 7 tools: read, write, edit, bash, glob, grep, memory_search
+- PostgreSQL 16 + pgvector: 5 tables, HNSW index, FTS GIN index
+- Hybrid retrieval: vector cosine + BM25 + recency + importance + workspace boost + access frequency
+- Automatic memory extraction from conversation turns
+- Cross-session recall: memories persist across `dog chat` sessions
+- Instinct engine: TOML-defined modules with keyword triggers, retrieval bias, prompt injection
+- Memory extraction defense: 12 failure modes handled (prose, fences, unquoted keys, etc.)
+- Ranking: sanitized formula with edge-case handling
+- Multi-stage retrieval: initial + triggered + retrieval budget (max 3 triggered, max 10 total)
+- 104 tests, ruff clean, all diagnostics green
 
-**Resume bullet:** "Built a coding agent CLI with Textual TUI and LiteLLM multi-provider integration supporting 6 tools (read, write, edit, bash, glob, grep)."
+### ✅ Complete: VS Code Extension (Week 5-6)
 
-### Week 2: Persistent Memory
+**Full VS Code extension with 4 sidebar panels, bridge, streaming.**
 
-**Goal:** The agent remembers things across sessions.
+- MemoryDogBridge: Python subprocess manager with stdin/stdout JSON-RPC
+- Chat panel: webview with message history, streaming token display, status updates
+- Memory browser panel: searchable list with workspace filter
+- Instinct viewer panel: status badges, descriptions
+- Animated dog mascot: CSS-driven idle/sniffing/excited/sleeping states
+- Status bar: real-time memory count, instinct count, workspace name
+- Configuration: API key management via VS Code settings
+- Packaged as `.vsix` (12KB, 10 files)
 
-- PostgreSQL + pgvector setup (Docker Compose)
-- Database schema (migration)
-- Memory CRUD: store, retrieve by vector similarity
-- LLM-based memory extraction from conversations
-- Conversation persistence
-- Dog persona chrome (🐕 status messages)
-- Workspace awareness (current directory → workspace_name)
-- Memory deduplication on insert
+### In Progress
 
-**Resume bullet:** "Designed a vector-backed persistent memory system with automatic fact extraction from conversations stored in PostgreSQL with pgvector."
+- Windows bridge support (named pipes vs Unix signals)
+- Extension marketplace publishing
+- Demo video: cross-session memory recall in VS Code
 
-### Week 3: Hybrid Retrieval + Instincts
+### Post-MVP (Deferred)
 
-**Goal:** Smart retrieval and reusable behavioral modules.
-
-- Hybrid ranking formula (vector + BM25 + recency + importance + workspace boost)
-- PostgreSQL full-text search integration
-- Multi-stage retrieval triggers
-- Instinct TOML engine (load, match, activate, bias, inject)
-- Instinct-guided retrieval bias
-- Retrieval budget controls (max 3 extra, max 10 total)
-
-**Resume bullet:** "Implemented hybrid retrieval combining vector similarity, BM25 keyword search, recency weighting, and importance scoring with configurable ranking. Built an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior."
-
-### Week 4: TUI Polish + CLI Demo
-
-**Goal:** A polished, demo-ready CLI product.
-
-- Multi-pane layout (conversation, file preview, tool output)
-- Plan visibility (Rich panel from JSON plan blocks)
-- Status bar with memory/instinct counts
-- README with architecture diagram, setup instructions, demo GIF
-- Demo video: show memory persisting across sessions
-
-**Resume bullet:** "Developed a multi-pane developer TUI with real-time file preview, diff viewing, and memory/instinct status indicators."
-
-### Week 5-6: VS Code Extension
-
-**Goal:** A VS Code extension with animated dog mascot and memory browser.
-
-- Extension boilerplate (package.json, activation, commands)
-- Sidebar webview panels (memory browser, instinct viewer, dog status)
-- Animated dog mascot (idle, sniffing, excited, sleeping states via CSS/JS)
-- Python subprocess communication (stdin/stdout JSON-RPC)
-- Refactor into `memorydog-core` shared package
-
-**Resume bullet:** "Built a VS Code extension with animated mascot interface, sidebar memory browser, and instinct viewer — both frontends share a single memorydog-core Python library with zero logic duplication."
-
-### Post-MVP (Optional)
-
-- Memory consolidation (summarization)
-- Confidence scoring
+- Memory consolidation (summarization of old memories)
+- Confidence scoring for retrieval
 - Behavioral pattern detection → automatic instinct generation
-- Cross-encoder reranking
-- Benchmarks (4-task suite)
+- Cross-encoder reranking for precision improvement
+- Benchmarks (4-task A/B suite, memory ON vs OFF)
 
 ---
 
@@ -495,22 +548,25 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 | Component | Choice | Why |
 |-----------|--------|-----|
-| Language | Python 3.11+ | Dominant in AI/ML, rich ecosystem |
+| Language (Core) | Python 3.11+ | Dominant in AI/ML, rich ecosystem |
+| Language (Extension) | TypeScript 5.x | VS Code API native |
 | CLI Framework | Textual + Rich | Multi-pane TUI, professional look |
 | LLM Provider | LiteLLM | 100+ providers, one interface |
 | Database | PostgreSQL 16 + pgvector | Vector + relational in one DB, FTS built in |
-| Embeddings | OpenAI text-embedding-3-small | 1536d, cheap, no GPU |
-| DB Driver | asyncpg + SQLAlchemy 2.0 | Async, industry standard |
+| Embeddings | Ollama + nomic-embed-text | Local, private, 768-dim |
+| DB Driver | asyncpg | Async PostgreSQL driver |
+| Extension Bridge | JSON-RPC over subprocess stdin/stdout | Zero dependency, no server |
 | Config | TOML (tomllib) | Python stdlib, human-readable |
-| Packaging | uv or poetry | Fast, lockfiles |
 | Testing | pytest + pytest-asyncio | Industry standard |
 | Linting | ruff | Fast, all-in-one |
 
 ### Dependencies
 
 ```
-textual, rich, litellm, sqlalchemy[asyncio], asyncpg, pgvector,
-openai, pydantic, pytest, pytest-asyncio, ruff
+Core: litellm, asyncpg, pgvector, httpx, pydantic
+CLI: textual, rich
+VS Code: @types/vscode, typescript
+Dev: pytest, pytest-asyncio, ruff
 ```
 
 ---
@@ -520,33 +576,46 @@ openai, pydantic, pytest, pytest-asyncio, ruff
 ```
 memorydog/              # monorepo
 ├── core/               # memorydog-core — shared Python package, zero UI
-│   ├── agent_loop.py
-│   ├── tools.py
-│   ├── provider.py
-│   ├── memory.py
-│   ├── retrieval.py
-│   ├── ranking.py
-│   ├── instincts.py
-│   ├── db.py
-│   └── context.py
+│   ├── agent_loop.py   # Execution loop, streaming, callbacks
+│   ├── tools.py        # 7 tools + memory_search
+│   ├── provider.py     # LiteLLM provider, streaming, error handling
+│   ├── memory.py       # CRUD, extraction, embedding, parsing
+│   ├── retrieval.py    # Hybrid search, budgeting, triggered retrieval
+│   ├── ranking.py      # Scoring formula, sanitize
+│   ├── instincts.py    # TOML loading, matching, bias
+│   ├── db.py           # asyncpg pool, migrations
+│   ├── config.py       # TOML config, env var fallback
+│   └── context.py      # Prompt construction
 ├── cli/                # memorydog-cli — Textual TUI frontend
-│   ├── main.py
-│   ├── app.py
+│   ├── main.py         # Entry point (dog chat/config/status)
+│   ├── app.py          # Textual App + CSS
 │   └── ui/
-│       ├── chat.py
-│       └── widgets.py
+│       ├── chat.py     # Chat screen, status messages, streaming
+│       └── widgets.py  # StatusBar, PlanPanel, DiffPreview, ToolOutput
 ├── vscode/             # memorydog-vscode — TypeScript extension
-│   ├── package.json
+│   ├── package.json    # 9 activation events, 4 webview panels
 │   ├── tsconfig.json
-│   ├── src/extension.ts
-│   ├── src/webview/
-│   └── assets/dog/
+│   ├── src/
+│   │   ├── extension.ts    # Activation, 4 providers, bridge
+│   │   ├── bridge.ts       # Python subprocess JSON-RPC
+│   │   └── webview/
+│   │       ├── chat.html       # Chat panel with streaming
+│   │       ├── chat.js
+│   │       ├── memory.html     # Memory browser
+│   │       ├── instinct.html   # Instinct viewer
+│   │       └── dog.html        # Animated mascot
+│   └── assets/dog/         # Dog sprite assets
 ├── migrations/
-│   └── 001_init.sql
-├── docker-compose.yml
-├── pyproject.toml
-└── README.md
-```
+│   └── 001_init.sql        # 5 tables, HNSW, FTS
+├── tests/
+│   ├── test_tui.py          # 38 tests (provider, config, ranking, instincts)
+│   ├── test_extraction.py   # 42 tests (parsing, validation)
+│   ├── test_retrieval.py    # 24 tests (budget, triggers, logging)
+│   ├── test_integration.py  # 6 tests (full pipeline)
+│   └── benchmarks/          # A/B comparison harness
+├── docker-compose.yml       # pgvector/pgvector:pg16
+├── dog                      # Launcher script (auto-activates venv)
+└── pyproject.toml
 
 ---
 
@@ -558,6 +627,6 @@ If time permits, a 4-task A/B comparison (memory ON vs OFF) measuring task succe
 
 ## Resume Description
 
-**MemoryDog** — *Python, PostgreSQL, pgvector, LiteLLM, Textual*
+**MemoryDog** — *Python, PostgreSQL/pgvector, LiteLLM, TypeScript, VS Code API*
 
-Designed and built a memory-augmented coding agent with persistent long-term memory across sessions and projects. Implemented a hybrid retrieval pipeline combining vector similarity (pgvector HNSW), BM25 keyword search, recency weighting, and importance scoring with configurable ranking formulas. Built an automatic memory extraction system that identifies and stores design decisions, bugs, and user preferences from conversations. Designed an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior based on task context. Developed a multi-pane Textual-based TUI with real-time conversation, file preview, and tool execution monitoring. Achieved cross-session context retention beyond stateless agent capabilities using the same underlying LLM.
+Designed and built a memory-augmented coding agent with persistent long-term memory across sessions and projects. Implemented a hybrid retrieval pipeline combining vector similarity (pgvector HNSW), BM25 keyword search, recency weighting, and importance scoring with configurable ranking formulas. Built an automatic memory extraction system that identifies and stores design decisions, bugs, and user preferences from conversations. Designed an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior based on task context. Developed both a multi-pane Textual-based CLI TUI and a VS Code extension with sidebar webviews (chat with streaming, memory browser, instinct viewer, animated mascot) — both frontends share a single `memorydog-core` Python library with zero logic duplication via a subprocess JSON-RPC bridge.

@@ -14,12 +14,10 @@
   },
   "categories": ["Other"],
   "activationEvents": [
-    "onCommand:memorydog.start",
-    "onCommand:memorydog.startChat",
+    "onCommand:memorydog.focusChat",
     "onCommand:memorydog.showQuickActions",
-    "onCommand:memorydog.showMemoryPanel",
-    "onCommand:memorydog.showInstinctPanel",
-    "onCommand:memorydog.showDogView",
+    "onCommand:memorydog.configure",
+    "onView:memorydog.chatView",
     "onView:memorydog.memoryPanel",
     "onView:memorydog.instinctPanel",
     "onView:memorydog.dogView"
@@ -28,16 +26,24 @@
   "contributes": {
     "commands": [
       {
-        "command": "memorydog.start",
-        "title": "MemoryDog: Start Agent"
-      },
-      {
-        "command": "memorydog.startChat",
-        "title": "MemoryDog: Start Chat (--mock)"
+        "command": "memorydog.focusChat",
+        "title": "MemoryDog: Focus Chat"
       },
       {
         "command": "memorydog.showQuickActions",
         "title": "MemoryDog: Quick Actions"
+      },
+      {
+        "command": "memorydog.configure",
+        "title": "MemoryDog: Configure API Key"
+      },
+      {
+        "command": "memorydog.start",
+        "title": "MemoryDog: Start Agent (legacy)"
+      },
+      {
+        "command": "memorydog.startChat",
+        "title": "MemoryDog: Start Chat (legacy)"
       },
       {
         "command": "memorydog.showMemoryPanel",
@@ -65,8 +71,8 @@
       "memorydog": [
         {
           "type": "webview",
-          "id": "memorydog.dogView",
-          "name": "Mascot"
+          "id": "memorydog.chatView",
+          "name": "Chat"
         },
         {
           "type": "webview",
@@ -77,8 +83,28 @@
           "type": "webview",
           "id": "memorydog.instinctPanel",
           "name": "Instincts"
+        },
+        {
+          "type": "webview",
+          "id": "memorydog.dogView",
+          "name": "Mascot"
         }
       ]
+    },
+    "configuration": {
+      "title": "MemoryDog",
+      "properties": {
+        "memorydog.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for your LLM provider (e.g. DeepSeek, OpenAI, Anthropic)"
+        },
+        "memorydog.model": {
+          "type": "string",
+          "default": "deepseek/deepseek-chat",
+          "description": "LiteLLM model string (e.g. deepseek/deepseek-chat, openai/gpt-4o, anthropic/claude-sonnet-4-20250514)"
+        }
+      }
     }
   },
   "scripts": {

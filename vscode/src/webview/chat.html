@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MemoryDog Chat</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --fg: #d4d4d4;
+    --accent: #007acc;
+    --muted: #6a6a6a;
+    --surface: #252526;
+    --border: #3e3e3e;
+    --user-bubble: #264f78;
+    --dog-bubble: #333333;
+    --status-color: #cca700;
+    --tool-color: #4ec9b0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 13px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Conversation area */
+  .conversation {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .message {
+    max-width: 90%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    line-height: 1.5;
+    word-break: break-word;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user {
+    background: var(--user-bubble);
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.assistant {
+    background: var(--dog-bubble);
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+  }
+
+  .message .sender {
+    font-size: 11px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    opacity: 0.8;
+  }
+
+  .message pre {
+    background: #1a1a1a;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px;
+  }
+
+  .message code {
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.1);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .message pre code {
+    background: none;
+    padding: 0;
+  }
+
+  /* Status messages */
+  .status-line {
+    font-size: 12px;
+    color: var(--status-color);
+    padding: 4px 0;
+    font-style: italic;
+    align-self: flex-start;
+  }
+
+  .status-line::before {
+    content: "🐕 ";
+  }
+
+  /* Tool call display */
+  .tool-call {
+    font-size: 12px;
+    color: var(--tool-color);
+    padding: 4px 8px;
+    background: rgba(78, 201, 176, 0.1);
+    border-left: 2px solid var(--tool-color);
+    border-radius: 4px;
+    align-self: flex-start;
+    font-family: monospace;
+  }
+
+  /* Streaming response */
+  .streaming {
+    opacity: 0.85;
+  }
+
+  /* Input area */
+  .input-area {
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    gap: 8px;
+    background: var(--bg);
+  }
+
+  .input-area textarea {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    resize: none;
+    outline: none;
+    min-height: 40px;
+    max-height: 120px;
+    line-height: 1.4;
+  }
+
+  .input-area textarea:focus {
+    border-color: var(--accent);
+  }
+
+  .input-area textarea::placeholder {
+    color: var(--muted);
+  }
+
+  .input-area button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+  }
+
+  .input-area button:hover { opacity: 0.85; }
+  .input-area button:active { opacity: 0.7; }
+  .input-area button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* Dog state indicator */
+  .dog-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .dog-indicator .state-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .dog-indicator .state-dot.sniffing {
+    background: var(--status-color);
+    animation: pulse 0.5s ease-in-out infinite alternate;
+  }
+
+  .dog-indicator .state-dot.excited {
+    background: #4ec9b0;
+    animation: pulse 0.2s ease-in-out infinite alternate;
+  }
+
+  .dog-indicator .state-dot.sleeping {
+    background: #555;
+  }
+
+  @keyframes pulse {
+    from { transform: scale(1); opacity: 0.5; }
+    to { transform: scale(1.3); opacity: 1; }
+  }
+
+  /* Welcome screen */
+  .welcome {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .welcome h2 {
+    font-size: 24px;
+    margin-bottom: 8px;
+    color: var(--fg);
+  }
+
+  .welcome .setup-hint {
+    margin-top: 16px;
+    font-size: 12px;
+    color: var(--status-color);
+  }
+
+  /* Setup form */
+  .setup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 400px;
+    margin: 20px auto;
+  }
+
+  .setup-form input {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+  }
+
+  .setup-form input:focus {
+    border-color: var(--accent);
+  }
+
+  .setup-form button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div class="dog-indicator" id="dogIndicator">
+  <span class="state-dot" id="stateDot"></span>
+  <span id="dogStatus">🐕 Ready</span>
+</div>
+
+<div class="conversation" id="conversation"></div>
+
+<div class="input-area">
+  <textarea
+    id="userInput"
+    placeholder="Type your message... (Enter to send, Shift+Enter for newline)"
+    rows="1"
+  ></textarea>
+  <button id="sendBtn">Send</button>
+</div>
+
+<script>
+  const vscode = acquireVsCodeApi();
+  const conversation = document.getElementById("conversation");
+  const userInput = document.getElementById("userInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const dogStatus = document.getElementById("dogStatus");
+  const stateDot = document.getElementById("stateDot");
+  const dogIndicator = document.getElementById("dogIndicator");
+
+  let streamingEl = null;
+  let streamingText = "";
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function addStatus(msg) {
+    const el = document.createElement("div");
+    el.className = "status-line";
+    el.textContent = msg;
+    conversation.appendChild(el);
+    scrollDown();
+
+    // Update dog indicator
+    if (msg.toLowerCase().includes("fetching") || msg.toLowerCase().includes("sniffing")) {
+      setDogState("sniffing", msg);
+    } else if (msg.toLowerCase().includes("found") || msg.toLowerCase().includes("learned") || msg.toLowerCase().includes("activated")) {
+      setDogState("excited", msg);
+    } else if (msg.toLowerCase().includes("thinking") || msg.toLowerCase().includes("running")) {
+      setDogState("sniffing", msg);
+    } else if (msg.toLowerCase().includes("ready") || msg.toLowerCase().includes("done")) {
+      setDogState("idle", msg);
+    } else {
+      setDogState("sniffing", msg);
+    }
+  }
+
+  function addMessage(role, content) {
+    if (!content) return;
+    const el = document.createElement("div");
+    el.className = "message " + role;
+    if (role === "user") {
+      el.textContent = content;
+    } else {
+      el.innerHTML = renderMarkdown(content);
+    }
+    conversation.appendChild(el);
+    scrollDown();
+  }
+
+  function addToolCall(text) {
+    const el = document.createElement("div");
+    el.className = "tool-call";
+    el.textContent = "🔧 " + text;
+    conversation.appendChild(el);
+  }
+
+  function simpleMarkdown(text) {
+    // Code blocks
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+      return "<pre><code>" + escapeHtml(code.trim()) + "</code></pre>";
+    });
+    // Inline code
+    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+    // Bold
+    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    // Italic
+    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return text;
+  }
+
+  function renderMarkdown(text) {
+    return simpleMarkdown(escapeHtml(text));
+  }
+
+  function startStreaming() {
+    if (streamingEl) {
+      conversation.removeChild(streamingEl);
+    }
+    streamingEl = document.createElement("div");
+    streamingEl.className = "message assistant streaming";
+    conversation.appendChild(streamingEl);
+    streamingText = "";
+  }
+
+  function appendToken(token) {
+    if (!streamingEl) { startStreaming(); }
+    streamingText += token;
+    streamingEl.innerHTML = renderMarkdown(streamingText);
+    scrollDown();
+  }
+
+  function finishStreaming() {
+    if (streamingEl) {
+      streamingEl.classList.remove("streaming");
+      streamingEl = null;
+      streamingText = "";
+    }
+  }
+
+  function setDogState(state, label) {
+    stateDot.className = "state-dot " + state;
+    dogStatus.textContent = "🐕 " + (label || state);
+  }
+
+  function scrollDown() {
+    conversation.scrollTop = conversation.scrollHeight;
+  }
+
+  function setLoading(loading) {
+    userInput.disabled = loading;
+    sendBtn.disabled = loading;
+    if (!loading) {
+      userInput.focus();
+    }
+  }
+
+  function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text) return;
+
+    addMessage("user", text);
+    userInput.value = "";
+    userInput.style.height = "auto";
+    setLoading(true);
+
+    vscode.postMessage({ type: "chat", text });
+  }
+
+  // Event listeners
+  sendBtn.addEventListener("click", sendMessage);
+
+  userInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+
+  // Auto-resize textarea
+  userInput.addEventListener("input", () => {
+    userInput.style.height = "auto";
+    userInput.style.height = Math.min(userInput.scrollHeight, 120) + "px";
+  });
+
+  // Handle messages from extension
+  window.addEventListener("message", (event) => {
+    const msg = event.data;
+
+    switch (msg.type) {
+      case "status":
+        addStatus(msg.text);
+        break;
+
+      case "token":
+        appendToken(msg.token);
+        break;
+
+      case "response":
+        finishStreaming();
+        addMessage("assistant", msg.content);
+        setLoading(false);
+        setDogState("idle", "Ready");
+        break;
+
+      case "tool":
+        addToolCall(msg.text);
+        break;
+
+      case "error":
+        finishStreaming();
+        const errEl = document.createElement("div");
+        errEl.className = "message assistant";
+        errEl.style.color = "#f44747";
+        errEl.textContent = "❌ " + msg.text;
+        conversation.appendChild(errEl);
+        setLoading(false);
+        setDogState("idle", "Ready");
+        break;
+
+      case "ready":
+        setDogState("idle", "Ready");
+        setLoading(false);
+        break;
+
+      case "setup":
+        showSetup();
+        break;
+    }
+  });
+
+  function showSetup() {
+    conversation.innerHTML = `
+      <div class="welcome">
+        <h2>🐕 MemoryDog</h2>
+        <p>A memory-augmented coding agent that gets better the longer you work with it.</p>
+        <div class="setup-form">
+          <input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-...)" />
+          <input type="text" id="modelInput" placeholder="Model (default: deepseek/deepseek-chat)" />
+          <button id="saveConfigBtn">Save & Start</button>
+        </div>
+        <div class="setup-hint">
+          Or run <code>dog config</code> in the terminal.
+        </div>
+      </div>
+    `;
+
+    document.getElementById("saveConfigBtn").addEventListener("click", () => {
+      const apiKey = document.getElementById("apiKeyInput").value.trim();
+      const model = document.getElementById("modelInput").value.trim();
+      vscode.postMessage({ type: "setConfig", apiKey, model });
+      conversation.innerHTML = '<div class="status-line">🐕 Configuring...</div>';
+    });
+  }
+
+  // Request initial state
+  vscode.postMessage({ type: "ready" });
+</script>
+</body>
+</html>
