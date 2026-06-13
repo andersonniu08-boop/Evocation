@@ -9,7 +9,7 @@
     --bg: #1e1e1e; --fg: #d4d4d4; --accent: #007acc;
     --muted: #6a6a6a; --surface: #252526; --border: #3e3e3e;
     --user-bubble: #264f78; --dog-bubble: #333333;
-    --tool-color: #4ec9b0; --error: #f44747; --warn: #cca700;
+    --error: #f44747; --warn: #cca700;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -19,29 +19,26 @@
     display: flex; flex-direction: column; overflow: hidden;
   }
 
-  /* ═══════════ Status / Dog ═══════════ */
+  /* ═══════════ Status Bar ═══════════ */
   .status-bar {
     display: flex; align-items: center; gap: 12px;
-    padding: 10px 16px; background: var(--surface);
+    padding: 8px 16px; background: var(--surface);
     border-bottom: 1px solid var(--border);
-    min-height: 56px; flex-shrink: 0;
+    min-height: 48px; flex-shrink: 0;
   }
   .dog-sprite {
-    width: 42px; height: 80px; flex-shrink: 0;
-    background-size: cover;
-    background-repeat: no-repeat;
-    background-position: center center;
-    border-radius: 6px;
-    transition: background-image 0.2s;
-    /* Fallback when sprite not loaded: show paw emoji */
-    display: flex; align-items: center; justify-content: center;
-    font-size: 28px; color: var(--muted);
+    width: 30px; height: 57px; flex-shrink: 0;
+    background-repeat: no-repeat; border-radius: 4px;
+    position: relative;
   }
-  .dog-sprite.sheet-loaded {
-    font-size: 0; /* hide emoji once sprite loads */
+  .dog-sprite::after {
+    content: "🐕"; position: absolute;
+    inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: var(--muted);
   }
-  .status-text { font-size: 13px; font-weight: 500; }
-  .status-sub { font-size: 11px; color: var(--muted); margin-left: 8px; }
+  .dog-sprite.loaded::after { content: none; }
+  .status-label { font-size: 13px; font-weight: 500; }
+  .status-detail { font-size: 11px; color: var(--muted); }
 
   /* ═══════════ Conversation ═══════════ */
   .conversation {
@@ -78,7 +75,7 @@
   .input-area button:hover { opacity:0.85; }
   .input-area button:disabled { opacity:0.4; cursor:not-allowed; }
 
-  /* ═══════════ Welcome / Setup ═══════════ */
+  /* ═══════════ Setup ═══════════ */
   .welcome { text-align:center; padding:60px 20px; color:var(--muted); flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .welcome h2 { font-size:22px; margin-bottom:8px; color:var(--fg); }
   .setup-form { display:flex; flex-direction:column; gap:10px; max-width:400px; width:100%; margin:20px auto; }
@@ -91,20 +88,18 @@
 </head>
 <body>
 
-<!-- ═══════════ Status Bar with Dog ═══════════ -->
+<!-- ═══════════ Status Bar ═══════════ -->
 <div class="status-bar" id="statusBar">
-  <div class="dog-sprite" id="dogSprite">🐕</div>
+  <div class="dog-sprite" id="dogSprite"></div>
   <div style="flex:1">
-    <div class="status-text" id="statusText">Starting…</div>
-    <div class="status-sub" id="statusSub"></div>
+    <div class="status-label" id="statusLabel">Starting…</div>
+    <div class="status-detail" id="statusDetail"></div>
   </div>
   <span id="settingsBtn" style="cursor:pointer;font-size:16px;padding:4px 8px;opacity:0.6" title="Change API key">⚙</span>
 </div>
 
-<!-- ═══════════ Conversation ═══════════ -->
 <div class="conversation" id="conversation"></div>
 
-<!-- ═══════════ Input ═══════════ -->
 <div class="input-area">
   <textarea id="userInput" placeholder="Message MemoryDog… (Enter to send)" rows="1"></textarea>
   <button id="sendBtn">Send</button>
@@ -113,291 +108,139 @@
 <script>
 (function(){
   const vscode = acquireVsCodeApi();
-  const conversation = document.getElementById("conversation");
+  const conv = document.getElementById("conversation");
   const userInput = document.getElementById("userInput");
   const sendBtn = document.getElementById("sendBtn");
-  const dogSprite = document.getElementById("dogSprite");
-  const statusText = document.getElementById("statusText");
-  const statusSub = document.getElementById("statusSub");
+  const dogEl = document.getElementById("dogSprite");
+  const statusLabel = document.getElementById("statusLabel");
+  const statusDetail = document.getElementById("statusDetail");
 
   let streamingEl = null, streamingText = "";
   let spriteCfg = null;
-  let animFrameId = null;
-  let currentState = "sleeping";
-  let stateFrameIndex = 0;
+  let currentState = "idle";
+  let stateFrame = 0;
   let stateFrameCount = 1;
-  let lastFrameTime = 0;
+  let animId = null;
+  let lastFrameAt = 0;
 
-  // ═══════════════════════════════════════════════════
-  // Sprite animation engine
-  // ═══════════════════════════════════════════════════
-  function configureSprite(config) {
-    spriteCfg = config;
-    loadSpriteImage(config.spriteUrl);
-  }
-
-  function loadSpriteImage(url) {
+  // ═══════════ Sprite engine (CSS background-position, no canvas) ═══════════
+  function configureSprite(cfg) {
+    spriteCfg = cfg;
     const img = new Image();
     img.onload = function() {
-      // Create a canvas to extract individual frames
-      const fw = spriteCfg.frameWidth;
-      const fh = spriteCfg.frameHeight;
-      const cols = spriteCfg.columns;
-      const rows = spriteCfg.rows;
+      // Calculate display dimensions preserving aspect ratio
+      const dw = 30;
+      const fw = cfg.frameWidth || 531;
+      const fh = cfg.frameHeight || 1008;
+      const dh = Math.round((fh / fw) * dw);
+      const cols = cfg.columns || 4;
+      const rows = cfg.rows || 2;
 
-      // Store pre-extracted frame URLs for each (col, row) position
-      const frames = {};
-      const canvas = document.createElement("canvas");
-      canvas.width = fw;
-      canvas.height = fh;
-      const ctx = canvas.getContext("2d");
+      dogEl.style.width = dw + "px";
+      dogEl.style.height = dh + "px";
+      dogEl.style.backgroundImage = `url('${cfg.spriteUrl}')`;
+      dogEl.style.backgroundSize = `${dw * cols}px ${dh * rows}px`;
+      dogEl.style.backgroundPosition = "0 0";
+      dogEl.classList.add("loaded");
 
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          ctx.clearRect(0, 0, fw, fh);
-          ctx.drawImage(img, c*fw, r*fh, fw, fh, 0, 0, fw, fh);
-          frames[`${c}_${r}`] = canvas.toDataURL();
-        }
-      }
-
-      // Store frames for quick access
-      spriteCfg.frames = frames;
+      // Store computed values
+      spriteCfg.dw = dw; spriteCfg.dh = dh;
       spriteCfg.loaded = true;
-      dogSprite.classList.add("sheet-loaded");
-      setDogFrame(0, 0); // initial frame
-      startAnimLoop();
+
+      setDogFrame(0, 0);
+      startLoop();
     };
     img.onerror = function() {
-      // Keep paw emoji as fallback
-      console.warn("Failed to load sprite sheet: " + url);
+      // Paw emoji fallback stays via ::after pseudo-element
     };
-    img.src = url;
+    img.src = cfg.spriteUrl;
   }
 
   function setDogFrame(col, row) {
-    if (!spriteCfg || !spriteCfg.frames) return;
-    const key = `${col}_${row}`;
-    const url = spriteCfg.frames[key];
-    if (url) {
-      dogSprite.style.backgroundImage = `url(${url})`;
-      dogSprite.style.backgroundSize = "cover";
-      dogSprite.style.backgroundPosition = "center center";
-    }
+    if (!spriteCfg || !spriteCfg.loaded) return;
+    const x = -(col * spriteCfg.dw);
+    const y = -(row * spriteCfg.dh);
+    dogEl.style.backgroundPosition = `${x}px ${y}px`;
   }
 
   function setDogState(state) {
     if (currentState === state) return;
-    currentState = state;
-    stateFrameIndex = 0;
-    const entry = (spriteCfg && spriteCfg.states[state]) || { col: 0, row: 0 };
-    // Determine frame count: each state has different frame count
-    // For MVP, each state = 1 frame (the sprite sheet has 1 frame per state)
-    stateFrameCount = 1;
+    currentState = state; stateFrame = 0; stateFrameCount = 1;
+    const entry = (spriteCfg && spriteCfg.states && spriteCfg.states[state]) || { col: 0, row: 0 };
     setDogFrame(entry.col, entry.row);
   }
 
-  function startAnimLoop() {
-    if (animFrameId) return;
-    lastFrameTime = performance.now();
-
+  function startLoop() {
+    if (animId) return;
+    lastFrameAt = performance.now();
     function tick(now) {
-      animFrameId = requestAnimationFrame(tick);
+      animId = requestAnimationFrame(tick);
       const dur = (spriteCfg && spriteCfg.durations && spriteCfg.durations[currentState]) || 900;
-      if (now - lastFrameTime >= dur) {
-        lastFrameTime = now;
-        // Cycle frame within current state
+      if (now - lastFrameAt >= dur) {
+        lastFrameAt = now;
         if (stateFrameCount > 1) {
-          stateFrameIndex = (stateFrameIndex + 1) % stateFrameCount;
-          const entry = (spriteCfg && spriteCfg.states[currentState]) || { col: 0, row: 0 };
-          setDogFrame(entry.col + stateFrameIndex, entry.row);
+          stateFrame = (stateFrame + 1) % stateFrameCount;
+          const entry = (spriteCfg && spriteCfg.states && spriteCfg.states[currentState]) || { col: 0, row: 0 };
+          setDogFrame(entry.col + stateFrame, entry.row);
         }
       }
     }
     requestAnimationFrame(tick);
   }
 
-  // ═══════════════════════════════════════════════════
-  // Status display
-  // ═══════════════════════════════════════════════════
-  function setStatus(state, text, sub) {
+  // ═══════════ Status ═══════════
+  function setStatus(state, label, detail) {
     setDogState(state);
-    statusText.textContent = text || "Ready";
-    statusSub.textContent = sub || "";
+    statusLabel.textContent = label || "Ready";
+    statusDetail.textContent = detail || "";
   }
 
-  // ═══════════════════════════════════════════════════
-  // Helpers
-  // ═══════════════════════════════════════════════════
+  // ═══════════ Helpers ═══════════
   function esc(s) { const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
-  function md(t) {
-    t = t.replace(/```(\w*)\n([\s\S]*?)```/g, (_,l,c)=>"<pre><code>"+esc(c.trim())+"</code></pre>");
-    t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
-    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    t = t.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-    return t;
-  }
-  function scroll() { conversation.scrollTop = conversation.scrollHeight; }
-  function setLoading(v) { userInput.disabled=v; sendBtn.disabled=v; if(!v)userInput.focus(); }
+  function md(t){t=t.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>"<pre><code>"+esc(c.trim())+"</code></pre>");t=t.replace(/`([^`]+)`/g,"<code>$1</code>");t=t.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");t=t.replace(/\*([^*]+)\*/g,"<em>$1</em>");return t;}
+  function scroll(){conv.scrollTop=conv.scrollHeight;}
+  function setLoading(v){userInput.disabled=v;sendBtn.disabled=v;if(!v)userInput.focus();}
+  function addMsg(role,content){if(!content)return;const el=document.createElement("div");el.className="message "+role;if(role==="user")el.textContent=content;else el.innerHTML=md(esc(content));conv.appendChild(el);scroll();}
+  function startStream(){if(streamingEl)conv.removeChild(streamingEl);streamingEl=document.createElement("div");streamingEl.className="message assistant streaming";conv.appendChild(streamingEl);streamingText="";}
+  function appendToken(t){if(!streamingEl)startStream();streamingText+=t;streamingEl.innerHTML=md(esc(streamingText));scroll();}
+  function finishStream(){if(streamingEl){streamingEl.classList.remove("streaming");streamingEl=null;streamingText="";}}
+  function sendMsg(){const t=userInput.value.trim();if(!t)return;addMsg("user",t);userInput.value="";userInput.style.height="auto";setLoading(true);setStatus("thinking","Thinking…");vscode.postMessage({type:"chat",text:t});}
+  sendBtn.addEventListener("click",sendMsg);
+  userInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}});
+  userInput.addEventListener("input",()=>{userInput.style.height="auto";userInput.style.height=Math.min(userInput.scrollHeight,200)+"px";});
+  document.getElementById("settingsBtn").addEventListener("click",()=>vscode.postMessage({type:"showSetup"}));
 
-  function addMsg(role, content) {
-    if (!content) return;
-    const el = document.createElement("div");
-    el.className = "message " + role;
-    if (role === "user") el.textContent = content;
-    else el.innerHTML = md(esc(content));
-    conversation.appendChild(el); scroll();
-  }
-
-  function startStream() {
-    if (streamingEl) conversation.removeChild(streamingEl);
-    streamingEl = document.createElement("div");
-    streamingEl.className = "message assistant streaming";
-    conversation.appendChild(streamingEl);
-    streamingText = "";
-  }
-
-  function appendToken(tok) {
-    if (!streamingEl) startStream();
-    streamingText += tok;
-    streamingEl.innerHTML = md(esc(streamingText));
-    scroll();
-  }
-
-  function finishStream() {
-    if (streamingEl) { streamingEl.classList.remove("streaming"); streamingEl = null; streamingText = ""; }
-  }
-
-  function sendMessage() {
-    const text = userInput.value.trim();
-    if (!text) return;
-    addMsg("user", text);
-    userInput.value = ""; userInput.style.height = "auto";
-    setLoading(true);
-    setStatus("thinking", "Thinking…");
-    vscode.postMessage({ type: "chat", text });
-  }
-
-  sendBtn.addEventListener("click", sendMessage);
-  userInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-  });
-  userInput.addEventListener("input", () => {
-    userInput.style.height = "auto";
-    userInput.style.height = Math.min(userInput.scrollHeight, 200) + "px";
-  });
-
-  // Settings button — re-open setup screen to change API key
-  document.getElementById("settingsBtn").addEventListener("click", () => {
-    vscode.postMessage({ type: "showSetup" });
-  });
-
-  // ═══════════════════════════════════════════════════
-  // Message handler
-  // ═══════════════════════════════════════════════════
-  window.addEventListener("message", (event) => {
-    const msg = event.data;
-    switch (msg.type) {
-      case "sprite_config":
-        configureSprite(msg);
-        break;
-      case "status":
-        { const m=msg.text.toLowerCase();
-          if (m.includes("found")||m.includes("matched")||m.includes("learned")) setStatus("sniffing", msg.text);
-        }
-        break;
-      case "state":
-        { const s = msg.state;
-          if (s === "RetrievingMemories") setStatus("sniffing", msg.detail || "Fetching memories…");
-          else if (s === "Thinking") setStatus("thinking", msg.detail || "Thinking…");
-          else if (s === "RunningTools") setStatus("running", msg.detail || "Running tools…");
-          else if (s === "Success") { setStatus("success", "Done"); setTimeout(() => setStatus("idle", "Ready"), 1000); }
-          else if (s === "Error") { setStatus("error", msg.detail || "Error"); setTimeout(() => setStatus("idle", "Ready"), 2000); }
-          else if (s === "Ready") setStatus("idle", "Ready");
-        }
-        break;
-      case "token":
-        appendToken(msg.token);
-        break;
-      case "response":
-        finishStream();
-        addMsg("assistant", msg.content);
-        setLoading(false);
-        setStatus("success", "Done");
-        setTimeout(() => setStatus("idle", "Ready"), 1000);
-        break;
-      case "error":
-        finishStream();
-        const errEl=document.createElement("div");
-        errEl.className="message assistant"; errEl.style.color="#f44747";
-        errEl.textContent="❌ "+msg.text;
-        conversation.appendChild(errEl);
-        setLoading(false);
-        setStatus("error","Error");
-        setTimeout(()=>setStatus("idle","Ready"),1000);
-        break;
-      case "ready":
-        setLoading(false);
-        setStatus("idle","Ready");
-        break;
-      case "setup":
-        showSetup();
-        break;
-      case "health":
-        showHealth(msg);
-        break;
-      case "setup_error":
-        showSetupError(msg.text);
-        break;
+  // ═══════════ Messages ═══════════
+  window.addEventListener("message",e=>{
+    const m=e.data;
+    switch(m.type){
+      case "sprite_config":configureSprite(m);break;
+      case "state":(function(s){
+        if(s==="RetrievingMemories")setStatus("sniffing","Fetching memories…",s.detail);
+        else if(s==="Thinking")setStatus("thinking","Thinking…",s.detail);
+        else if(s==="RunningTools")setStatus("running","Running tools…",s.detail);
+        else if(s==="Success"){setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);}
+        else if(s==="Error"){setStatus("error","Error",s.detail);setTimeout(()=>setStatus("idle","Ready"),2000);}
+        else if(s==="Ready")setStatus("idle","Ready");
+      })(m.state);break;
+      case "status":(function(t){
+        if(t.includes("found")||t.includes("matched")||t.includes("learned"))setStatus("sniffing",t);
+      })(m.text.toLowerCase());break;
+      case "token":appendToken(m.token);break;
+      case "response":finishStream();addMsg("assistant",m.content);setLoading(false);setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);break;
+      case "error":finishStream();const err=document.createElement("div");err.className="message assistant";err.style.color="#f44747";err.textContent="❌ "+m.text;conv.appendChild(err);setLoading(false);setStatus("error","Error");setTimeout(()=>setStatus("idle","Ready"),1000);break;
+      case "ready":setLoading(false);setStatus("idle","Ready");break;
+      case "setup":showSetup();break;
+      case "health":showHealth(m);break;
+      case "setup_error":showSetupError(m.text);break;
     }
   });
 
-  // ═══════════════════════════════════════════════════
-  // Setup screen
-  // ═══════════════════════════════════════════════════
-  function showSetup() {
-    conversation.innerHTML = `
-      <div class="welcome">
-        <h2>🐕 MemoryDog</h2>
-        <p>A memory-augmented coding agent that gets better the longer you work with it.</p>
-        <div class="setup-form">
-          <input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-…)" />
-          <input type="text" id="modelInput" placeholder="Model (default: deepseek/deepseek-chat)" />
-          <button id="saveConfigBtn">Save &amp; Start</button>
-        </div>
-        <div id="healthStatus"></div>
-        <div class="setup-hint">Or run <code>dog config</code> in the terminal.</div>
-      </div>
-    `;
-    const btn = document.getElementById("saveConfigBtn");
-    btn.addEventListener("click", () => {
-      const apiKey = document.getElementById("apiKeyInput").value.trim();
-      const model = document.getElementById("modelInput").value.trim();
-      vscode.postMessage({ type: "setConfig", apiKey, model });
-      btn.textContent = "Connecting…"; btn.disabled = true;
-    });
-  }
+  function showSetup(){conv.innerHTML='<div class="welcome"><h2>🐕 MemoryDog</h2><p>A memory-augmented coding agent.</p><div class="setup-form"><input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-…)" /><input type="text" id="modelInput" placeholder="Model (default: deepseek/deepseek-chat)" /><button id="saveConfigBtn">Save &amp; Start</button></div><div id="healthStatus"></div><div class="setup-hint">Or run <code>dog config</code> in terminal.</div></div>';document.getElementById("saveConfigBtn").addEventListener("click",()=>{const k=document.getElementById("apiKeyInput").value.trim();const m=document.getElementById("modelInput").value.trim();vscode.postMessage({type:"setConfig",apiKey:k,model:m});document.getElementById("saveConfigBtn").textContent="Connecting…";document.getElementById("saveConfigBtn").disabled=true;});}
+  function showHealth(h){const el=document.getElementById("healthStatus");if(!el)return;const ic=s=>s==="ok"?"✅":s==="missing"?"⚠":"❌";el.innerHTML='<div class="health-check">'+['api_key','database','embedding'].map(k=>`<div>${ic(h[k])} ${k==="api_key"?"API Key":k==="database"?"Database":"Embeddings"}: ${h[k]==="ok"?"Connected":h[k]==="missing"?"Not set":h[k]}</div>`).join("")+'</div>';}
+  function showSetupError(msg){const el=document.getElementById("healthStatus");if(el)el.innerHTML='<div class="health-check" style="color:#f44747;">❌ '+esc(msg)+'</div>';const btn=document.getElementById("saveConfigBtn");if(btn){btn.textContent="Retry";btn.disabled=false;}}
 
-  function showHealth(health) {
-    const el = document.getElementById("healthStatus");
-    if (!el) return;
-    const icon = s => s==="ok"?"✅":s==="missing"?"⚠️":"❌";
-    const label = s => { if(s==="ok")return"Connected"; if(s==="missing")return"Not set"; return s.replace("error: ",""); };
-    el.innerHTML = `<div class="health-check">
-      <div>${icon(health.api_key)} API Key: ${label(health.api_key)}</div>
-      <div>${icon(health.database)} Database: ${label(health.database)}</div>
-      <div>${icon(health.embedding)} Embeddings: ${label(health.embedding)}</div>
-    </div>`;
-  }
-
-  function showSetupError(msg) {
-    const el = document.getElementById("healthStatus");
-    if (el) el.innerHTML = `<div class="health-check" style="color:#f44747;">❌ ${esc(msg)}</div>`;
-    const btn = document.getElementById("saveConfigBtn");
-    if (btn) { btn.textContent = "Retry"; btn.disabled = false; }
-  }
-
-  // Request initial state
-  vscode.postMessage({ type: "ready" });
+  vscode.postMessage({type:"ready"});
 })();
 </script>
 </body>
