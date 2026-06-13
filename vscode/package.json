@@ -16,10 +16,12 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:memorydog.openChat",
-    "onCommand:memorydog.focusChat",
-    "onCommand:memorydog.showQuickActions",
+    "onCommand:memorydog.newSession",
+    "onCommand:memorydog.openSession",
+    "onCommand:memorydog.closeSession",
     "onCommand:memorydog.configure",
+    "onCommand:memorydog.showQuickActions",
+    "onView:memorydog.sessions",
     "onView:memorydog.memoryPanel",
     "onView:memorydog.instinctPanel"
   ],
@@ -27,21 +29,30 @@
   "contributes": {
     "commands": [
       {
-        "command": "memorydog.openChat",
-        "title": "MemoryDog: Open Chat",
-        "icon": "$(comment-discussion)"
+        "command": "memorydog.newSession",
+        "title": "MemoryDog: New Session",
+        "icon": "$(add)"
       },
       {
-        "command": "memorydog.focusChat",
-        "title": "MemoryDog: Focus Chat"
+        "command": "memorydog.openSession",
+        "title": "MemoryDog: Open Session"
+      },
+      {
+        "command": "memorydog.closeSession",
+        "title": "MemoryDog: Close Session"
+      },
+      {
+        "command": "memorydog.renameSession",
+        "title": "MemoryDog: Rename Session"
+      },
+      {
+        "command": "memorydog.configure",
+        "title": "MemoryDog: Configure API Key",
+        "icon": "$(settings-gear)"
       },
       {
         "command": "memorydog.showQuickActions",
         "title": "MemoryDog: Quick Actions"
-      },
-      {
-        "command": "memorydog.configure",
-        "title": "MemoryDog: Configure API Key"
       },
       {
         "command": "memorydog.start",
@@ -60,6 +71,30 @@
         "title": "MemoryDog: Show Instincts"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "memorydog.newSession",
+          "when": "view == memorydog.sessions",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "memorydog.openSession",
+          "when": "view == memorydog.sessions && viewItem == session",
+          "group": "inline"
+        },
+        {
+          "command": "memorydog.closeSession",
+          "when": "view == memorydog.sessions && viewItem == session"
+        },
+        {
+          "command": "memorydog.renameSession",
+          "when": "view == memorydog.sessions && viewItem == session"
+        }
+      ]
+    },
     "viewsContainers": {
       "activitybar": [
         {
@@ -71,6 +106,11 @@
     },
     "views": {
       "memorydog": [
+        {
+          "type": "tree",
+          "id": "memorydog.sessions",
+          "name": "Sessions"
+        },
         {
           "type": "webview",
           "id": "memorydog.memoryPanel",
