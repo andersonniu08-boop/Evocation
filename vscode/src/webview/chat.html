@@ -6,459 +6,255 @@
 <title>MemoryDog Chat</title>
 <style>
   :root {
-    --bg: #1e1e1e;
-    --fg: #d4d4d4;
-    --accent: #007acc;
-    --muted: #6a6a6a;
-    --surface: #252526;
-    --border: #3e3e3e;
-    --user-bubble: #264f78;
-    --dog-bubble: #333333;
-    --status-color: #cca700;
-    --tool-color: #4ec9b0;
-    --success: #4ec9b0;
-    --error: #f44747;
-    --warn: #cca700;
+    --bg: #1e1e1e; --fg: #d4d4d4; --accent: #007acc;
+    --muted: #6a6a6a; --surface: #252526; --border: #3e3e3e;
+    --user-bubble: #264f78; --dog-bubble: #333333;
+    --tool-color: #4ec9b0; --error: #f44747; --warn: #cca700;
   }
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   body {
-    background: var(--bg);
-    color: var(--fg);
+    background: var(--bg); color: var(--fg);
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    font-size: 13px; height: 100vh;
+    display: flex; flex-direction: column; overflow: hidden;
   }
 
-  /* ═══════════════════════════════════════════════════
-     StatusComponent — single updating status row
-     ═══════════════════════════════════════════════════ */
+  /* ═══════════ Status / Dog ═══════════ */
   .status-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
-    background: var(--surface);
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; background: var(--surface);
     border-bottom: 1px solid var(--border);
-    min-height: 52px;
-    flex-shrink: 0;
+    min-height: 56px; flex-shrink: 0;
   }
-
-  /* Tiny sprite beside status text */
-  .status-sprite {
-    width: 40px;
-    height: 76px;
-    background-color: var(--surface);
-    background-size: 160px 152px;  /* 4 cols * 40, 2 rows * 76 */
+  .dog-sprite {
+    width: 42px; height: 80px; flex-shrink: 0;
+    background-size: cover;
     background-repeat: no-repeat;
-    flex-shrink: 0;
-    border-radius: 4px;
-    overflow: hidden;
+    background-position: center center;
+    border-radius: 6px;
+    transition: background-image 0.2s;
+    /* Fallback when sprite not loaded: show paw emoji */
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px; color: var(--muted);
   }
-
-  .status-text {
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--fg);
-    transition: color 0.2s;
+  .dog-sprite.sheet-loaded {
+    font-size: 0; /* hide emoji once sprite loads */
   }
-  .status-text.s-thinking { color: var(--accent); }
-  .status-text.s-sniffing { color: var(--warn); }
-  .status-text.s-running  { color: var(--accent); }
-  .status-text.s-success  { color: var(--success); }
-  .status-text.s-error    { color: var(--error); }
+  .status-text { font-size: 13px; font-weight: 500; }
+  .status-sub { font-size: 11px; color: var(--muted); margin-left: 8px; }
 
-  /* Status sprite micro-animations (subtle) */
-  .status-sprite.anim-breathe  { animation: statusBreathe 3s ease-in-out infinite; }
-  .status-sprite.anim-think    { animation: statusThink 1.2s ease-in-out infinite alternate; }
-  .status-sprite.anim-sniff    { animation: statusSniff 0.45s ease-in-out infinite alternate; }
-  .status-sprite.anim-run      { animation: statusBounce 0.25s ease-in-out infinite alternate; }
-  .status-sprite.anim-success  { animation: statusPop 0.3s ease-in-out 2; }
-  .status-sprite.anim-error    { animation: statusShake 0.3s ease-in-out 3; }
-  .status-sprite.anim-sleeping { animation: statusFade 3s ease-in-out infinite; }
-  .status-sprite.anim-startup  { animation: statusGrow 0.6s ease-out; }
-
-  @keyframes statusBreathe { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
-  @keyframes statusThink   { 0%{ transform:rotate(-1.5deg); } 100%{ transform:rotate(1.5deg); } }
-  @keyframes statusSniff   { 0%{ transform:translateX(-2px); } 100%{ transform:translateX(2px); } }
-  @keyframes statusBounce  { 0%{ transform:translateY(0); } 100%{ transform:translateY(-4px); } }
-  @keyframes statusPop     { 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-6px) scale(1.08); } }
-  @keyframes statusShake   { 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-2px); } 75%{ transform:translateX(2px); } }
-  @keyframes statusFade    { 0%,100%{ opacity:0.5; } 50%{ opacity:0.8; } }
-  @keyframes statusGrow    { 0%{ transform:scale(0.6); opacity:0.3; } 60%{ transform:scale(1.06); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
-
-  /* ═══════════════════════════════════════════════════
-     Conversation area
-     ═══════════════════════════════════════════════════ */
+  /* ═══════════ Conversation ═══════════ */
   .conversation {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+    display: flex; flex-direction: column; gap: 12px;
   }
-
   .message {
-    max-width: 75%;
-    padding: 10px 14px;
-    border-radius: 12px;
-    line-height: 1.55;
-    word-break: break-word;
+    max-width: 75%; padding: 10px 14px; border-radius: 12px;
+    line-height: 1.55; word-break: break-word;
     animation: fadeIn 0.2s ease;
   }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+  .message.user { background:var(--user-bubble); align-self:flex-end; border-bottom-right-radius:4px; }
+  .message.assistant { background:var(--dog-bubble); align-self:flex-start; border-bottom-left-radius:4px; }
+  .message pre { background:#1a1a1a; border-radius:6px; padding:10px; margin:6px 0; overflow-x:auto; font-family:'Cascadia Code',monospace; font-size:12px; }
+  .message code { font-family:'Cascadia Code',monospace; font-size:12px; background:rgba(255,255,255,0.1); padding:1px 4px; border-radius:3px; }
+  .message pre code { background:none; padding:0; }
+  .streaming { opacity:0.85; }
+  .tool-call { font-size:12px; color:var(--tool-color); padding:4px 8px; background:rgba(78,201,176,0.1); border-left:2px solid var(--tool-color); border-radius:4px; align-self:flex-start; font-family:monospace; max-width:75%; }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(4px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .message.user {
-    background: var(--user-bubble);
-    align-self: flex-end;
-    border-bottom-right-radius: 4px;
-  }
-
-  .message.assistant {
-    background: var(--dog-bubble);
-    align-self: flex-start;
-    border-bottom-left-radius: 4px;
-  }
-
-  .message pre {
-    background: #1a1a1a;
-    border-radius: 6px;
-    padding: 10px;
-    margin: 6px 0;
-    overflow-x: auto;
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
-    font-size: 12px;
-  }
-
-  .message code {
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
-    font-size: 12px;
-    background: rgba(255,255,255,0.1);
-    padding: 1px 4px;
-    border-radius: 3px;
-  }
-  .message pre code { background: none; padding: 0; }
-
-  /* Tool call display */
-  .tool-call {
-    font-size: 12px;
-    color: var(--tool-color);
-    padding: 4px 8px;
-    background: rgba(78, 201, 176, 0.1);
-    border-left: 2px solid var(--tool-color);
-    border-radius: 4px;
-    align-self: flex-start;
-    font-family: monospace;
-    max-width: 75%;
-  }
-
-  /* Streaming response */
-  .streaming { opacity: 0.85; }
-
-  /* Retrieved memories block */
-  .memories-block {
-    background: rgba(0, 122, 204, 0.08);
-    border: 1px solid rgba(0, 122, 204, 0.25);
-    border-radius: 8px;
-    padding: 10px 14px;
-    align-self: flex-start;
-    max-width: 75%;
-    animation: fadeIn 0.3s ease;
-  }
-  .memories-block .memories-header {
-    font-size: 12px; font-weight: 600;
-    color: var(--accent); margin-bottom: 6px;
-    cursor: pointer; user-select: none;
-  }
-  .memories-block .memories-header::before { content: "🐕 "; }
-  .memories-block .memory-item {
-    font-size: 12px; padding: 3px 0; color: var(--fg);
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
-  .memories-block .memory-item:first-of-type { border-top: none; }
-  .memories-block .memory-type {
-    color: var(--muted); font-size: 10px;
-    text-transform: uppercase; letter-spacing: 0.5px;
-  }
-
-  /* ═══════════════════════════════════════════════════
-     Input area
-     ═══════════════════════════════════════════════════ */
+  /* ═══════════ Input ═══════════ */
   .input-area {
-    border-top: 1px solid var(--border);
-    padding: 12px 20px;
-    display: flex;
-    gap: 8px;
-    background: var(--bg);
-    flex-shrink: 0;
+    border-top:1px solid var(--border); padding:12px 20px;
+    display:flex; gap:8px; background:var(--bg); flex-shrink:0;
   }
-
   .input-area textarea {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--fg);
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-family: inherit;
-    font-size: 13px;
-    resize: none;
-    outline: none;
-    min-height: 42px;
-    max-height: 200px;
-    line-height: 1.4;
+    flex:1; background:var(--surface); border:1px solid var(--border);
+    color:var(--fg); padding:10px 14px; border-radius:8px;
+    font-family:inherit; font-size:13px; resize:none; outline:none;
+    min-height:42px; max-height:200px; line-height:1.4;
   }
+  .input-area textarea:focus { border-color:var(--accent); }
+  .input-area textarea::placeholder { color:var(--muted); }
+  .input-area button { background:var(--accent); color:white; border:none; padding:8px 20px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; flex-shrink:0; }
+  .input-area button:hover { opacity:0.85; }
+  .input-area button:disabled { opacity:0.4; cursor:not-allowed; }
 
-  .input-area textarea:focus { border-color: var(--accent); }
-  .input-area textarea::placeholder { color: var(--muted); }
-
-  .input-area button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 8px 20px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .input-area button:hover { opacity: 0.85; }
-  .input-area button:active { opacity: 0.7; }
-  .input-area button:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  /* ═══════════════════════════════════════════════════
-     Welcome / Setup screen
-     ═══════════════════════════════════════════════════ */
-  .welcome {
-    text-align: center;
-    padding: 60px 20px;
-    color: var(--muted);
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-  .welcome h2 { font-size: 22px; margin-bottom: 8px; color: var(--fg); }
-  .setup-form {
-    display: flex; flex-direction: column; gap: 10px;
-    max-width: 400px; width: 100%; margin: 20px auto;
-  }
-  .setup-form input {
-    background: var(--surface); border: 1px solid var(--border);
-    color: var(--fg); padding: 8px 12px; border-radius: 6px;
-    font-size: 13px; outline: none;
-  }
-  .setup-form input:focus { border-color: var(--accent); }
-  .setup-form button {
-    background: var(--accent); color: white; border: none;
-    padding: 8px 16px; border-radius: 6px;
-    font-size: 13px; font-weight: 600; cursor: pointer;
-  }
-  .health-check {
-    max-width: 400px; margin: 12px auto; padding: 12px;
-    background: var(--surface); border-radius: 8px;
-    font-size: 12px; line-height: 2; text-align: left;
-  }
-  .setup-hint { margin-top: 16px; font-size: 12px; color: var(--status-color); }
-  .health-hint { max-width: 400px; margin: 8px auto 0; }
+  /* ═══════════ Welcome / Setup ═══════════ */
+  .welcome { text-align:center; padding:60px 20px; color:var(--muted); flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .welcome h2 { font-size:22px; margin-bottom:8px; color:var(--fg); }
+  .setup-form { display:flex; flex-direction:column; gap:10px; max-width:400px; width:100%; margin:20px auto; }
+  .setup-form input { background:var(--surface); border:1px solid var(--border); color:var(--fg); padding:8px 12px; border-radius:6px; font-size:13px; outline:none; }
+  .setup-form input:focus { border-color:var(--accent); }
+  .setup-form button { background:var(--accent); color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+  .health-check { max-width:400px; margin:12px auto; padding:12px; background:var(--surface); border-radius:8px; font-size:12px; line-height:2; text-align:left; }
+  .setup-hint { margin-top:16px; font-size:12px; color:var(--warn); }
 </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════
-     StatusComponent — single updating row
-     ═══════════════════════════════════════════════════ -->
+<!-- ═══════════ Status Bar with Dog ═══════════ -->
 <div class="status-bar" id="statusBar">
-  <div class="status-sprite anim-sleeping" id="statusSprite"></div>
-  <span class="status-text" id="statusText">Initializing…</span>
+  <div class="dog-sprite" id="dogSprite">🐕</div>
+  <div>
+    <div class="status-text" id="statusText">Starting…</div>
+    <div class="status-sub" id="statusSub"></div>
+  </div>
 </div>
 
-<!-- ═══════════════════════════════════════════════════
-     Conversation — clean, no status messages here
-     ═══════════════════════════════════════════════════ -->
+<!-- ═══════════ Conversation ═══════════ -->
 <div class="conversation" id="conversation"></div>
 
-<!-- ═══════════════════════════════════════════════════
-     Input
-     ═══════════════════════════════════════════════════ -->
+<!-- ═══════════ Input ═══════════ -->
 <div class="input-area">
-  <textarea id="userInput" placeholder="Message MemoryDog… (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
+  <textarea id="userInput" placeholder="Message MemoryDog… (Enter to send)" rows="1"></textarea>
   <button id="sendBtn">Send</button>
 </div>
 
 <script>
+(function(){
   const vscode = acquireVsCodeApi();
   const conversation = document.getElementById("conversation");
   const userInput = document.getElementById("userInput");
   const sendBtn = document.getElementById("sendBtn");
-  const statusBar = document.getElementById("statusBar");
-  const statusSprite = document.getElementById("statusSprite");
+  const dogSprite = document.getElementById("dogSprite");
   const statusText = document.getElementById("statusText");
+  const statusSub = document.getElementById("statusSub");
 
-  let streamingEl = null;
-  let streamingText = "";
-  let spriteConfig = null;
+  let streamingEl = null, streamingText = "";
+  let spriteCfg = null;
+  let animFrameId = null;
+  let currentState = "sleeping";
+  let stateFrameIndex = 0;
+  let stateFrameCount = 1;
+  let lastFrameTime = 0;
 
   // ═══════════════════════════════════════════════════
-  // StatusComponent — updates IN PLACE, never appends
+  // Sprite animation engine
   // ═══════════════════════════════════════════════════
-  const STATUS_FRAMES = {
-    idle:     { col: 0, row: 0, label: "Ready",         anim: "anim-breathe" },
-    thinking: { col: 1, row: 0, label: "Thinking…",      anim: "anim-think" },
-    sniffing: { col: 2, row: 0, label: "Fetching memories…", anim: "anim-sniff" },
-    running:  { col: 3, row: 0, label: "Running tools…",   anim: "anim-run" },
-    success:  { col: 0, row: 1, label: "Done",           anim: "anim-success" },
-    error:    { col: 1, row: 1, label: "Error",          anim: "anim-error" },
-    sleeping: { col: 2, row: 1, label: "Disconnected",   anim: "anim-sleeping" },
-    startup:  { col: 3, row: 1, label: "Starting…",      anim: "anim-startup" },
-  };
-
-  function setStatus(state, labelOverride) {
-    const entry = STATUS_FRAMES[state] || STATUS_FRAMES.idle;
-    const label = labelOverride || entry.label;
-
-    // Update sprite frame via background-position
-    if (spriteConfig) {
-      const cfg = spriteConfig;
-      const DW = 40;
-      const DH = Math.round((cfg.frameHeight / cfg.frameWidth) * DW);
-      const x = -(entry.col * DW);
-      const y = -(entry.row * DH);
-      statusSprite.style.backgroundPosition = x + "px " + y + "px";
-    }
-
-    // Update text
-    statusText.textContent = label;
-    statusText.className = "status-text s-" + state;
-
-    // Update animation class
-    statusSprite.className = "status-sprite " + (entry.anim || "");
+  function configureSprite(config) {
+    spriteCfg = config;
+    loadSpriteImage(config.spriteUrl);
   }
 
-  function configureStatusSprite(config) {
-    spriteConfig = config;
-    const DW = 40;
-    const fw = config.frameWidth || 531;
-    const fh = config.frameHeight || 1008;
-    const DH = Math.round((fh / fw) * DW);
-    const cols = config.columns || 4;
-    const rows = config.rows || 2;
+  function loadSpriteImage(url) {
+    const img = new Image();
+    img.onload = function() {
+      // Create a canvas to extract individual frames
+      const fw = spriteCfg.frameWidth;
+      const fh = spriteCfg.frameHeight;
+      const cols = spriteCfg.columns;
+      const rows = spriteCfg.rows;
 
-    statusSprite.style.width = DW + "px";
-    statusSprite.style.height = DH + "px";
-    statusSprite.style.backgroundSize = (DW * cols) + "px " + (DH * rows) + "px";
+      // Store pre-extracted frame URLs for each (col, row) position
+      const frames = {};
+      const canvas = document.createElement("canvas");
+      canvas.width = fw;
+      canvas.height = fh;
+      const ctx = canvas.getContext("2d");
 
-    if (config.spriteUrl) {
-      statusSprite.style.backgroundImage = `url('${config.spriteUrl}')`;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          ctx.clearRect(0, 0, fw, fh);
+          ctx.drawImage(img, c*fw, r*fh, fw, fh, 0, 0, fw, fh);
+          frames[`${c}_${r}`] = canvas.toDataURL();
+        }
+      }
+
+      // Store frames for quick access
+      spriteCfg.frames = frames;
+      spriteCfg.loaded = true;
+      dogSprite.classList.add("sheet-loaded");
+      setDogFrame(0, 0); // initial frame
+      startAnimLoop();
+    };
+    img.onerror = function() {
+      // Keep paw emoji as fallback
+      console.warn("Failed to load sprite sheet: " + url);
+    };
+    img.src = url;
+  }
+
+  function setDogFrame(col, row) {
+    if (!spriteCfg || !spriteCfg.frames) return;
+    const key = `${col}_${row}`;
+    const url = spriteCfg.frames[key];
+    if (url) {
+      dogSprite.style.backgroundImage = `url(${url})`;
+      dogSprite.style.backgroundSize = "cover";
+      dogSprite.style.backgroundPosition = "center center";
     }
-    setStatus("idle", "Ready");
+  }
+
+  function setDogState(state) {
+    if (currentState === state) return;
+    currentState = state;
+    stateFrameIndex = 0;
+    const entry = (spriteCfg && spriteCfg.states[state]) || { col: 0, row: 0 };
+    // Determine frame count: each state has different frame count
+    // For MVP, each state = 1 frame (the sprite sheet has 1 frame per state)
+    stateFrameCount = 1;
+    setDogFrame(entry.col, entry.row);
+  }
+
+  function startAnimLoop() {
+    if (animFrameId) return;
+    lastFrameTime = performance.now();
+
+    function tick(now) {
+      animFrameId = requestAnimationFrame(tick);
+      const dur = (spriteCfg && spriteCfg.durations && spriteCfg.durations[currentState]) || 900;
+      if (now - lastFrameTime >= dur) {
+        lastFrameTime = now;
+        // Cycle frame within current state
+        if (stateFrameCount > 1) {
+          stateFrameIndex = (stateFrameIndex + 1) % stateFrameCount;
+          const entry = (spriteCfg && spriteCfg.states[currentState]) || { col: 0, row: 0 };
+          setDogFrame(entry.col + stateFrameIndex, entry.row);
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Status display
+  // ═══════════════════════════════════════════════════
+  function setStatus(state, text, sub) {
+    setDogState(state);
+    statusText.textContent = text || "Ready";
+    statusSub.textContent = sub || "";
   }
 
   // ═══════════════════════════════════════════════════
   // Helpers
   // ═══════════════════════════════════════════════════
-  function escapeHtml(str) {
-    const div = document.createElement("div");
-    div.textContent = str;
-    return div.innerHTML;
+  function esc(s) { const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
+  function md(t) {
+    t = t.replace(/```(\w*)\n([\s\S]*?)```/g, (_,l,c)=>"<pre><code>"+esc(c.trim())+"</code></pre>");
+    t = t.replace(/`([^`]+)`/g, "<code>$1</code>");
+    t = t.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    t = t.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return t;
   }
+  function scroll() { conversation.scrollTop = conversation.scrollHeight; }
+  function setLoading(v) { userInput.disabled=v; sendBtn.disabled=v; if(!v)userInput.focus(); }
 
-  function simpleMarkdown(text) {
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
-      "<pre><code>" + escapeHtml(code.trim()) + "</code></pre>"
-    );
-    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-    return text;
-  }
-
-  function renderMarkdown(text) {
-    return simpleMarkdown(escapeHtml(text));
-  }
-
-  function scrollDown() {
-    conversation.scrollTop = conversation.scrollHeight;
-  }
-
-  function setLoading(loading) {
-    userInput.disabled = loading;
-    sendBtn.disabled = loading;
-    if (!loading) userInput.focus();
-  }
-
-  // ═══════════════════════════════════════════════════
-  // Message rendering (NO status lines in conversation)
-  // ═══════════════════════════════════════════════════
-  function addMessage(role, content) {
+  function addMsg(role, content) {
     if (!content) return;
     const el = document.createElement("div");
     el.className = "message " + role;
-    if (role === "user") {
-      el.textContent = content;
-    } else {
-      el.innerHTML = renderMarkdown(content);
-    }
-    conversation.appendChild(el);
-    scrollDown();
+    if (role === "user") el.textContent = content;
+    else el.innerHTML = md(esc(content));
+    conversation.appendChild(el); scroll();
   }
 
-  function addToolCall(text) {
+  function addTool(text) {
     const el = document.createElement("div");
-    el.className = "tool-call";
-    el.textContent = "🔧 " + text;
-    conversation.appendChild(el);
-    scrollDown();
+    el.className = "tool-call"; el.textContent = "🔧 " + text;
+    conversation.appendChild(el); scroll();
   }
 
-  function showMemories(memories) {
-    if (!memories || memories.length === 0) return;
-    const block = document.createElement("div");
-    block.className = "memories-block";
-
-    const typeLabels = {
-      design_decision: "Design", learned_fact: "Fact", bug: "Bug",
-      user_preference: "Preference", code_snippet: "Code", task_history: "Task",
-      conversation: "Memory",
-    };
-
-    let html = '<div class="memories-header">I remember…</div>';
-    for (const m of memories) {
-      const typeLabel = typeLabels[m.type] || m.type || "Memory";
-      html += `<div class="memory-item"><span class="memory-type">${typeLabel}</span> ${escapeHtml(m.content || m.summary || "")}</div>`;
-    }
-    block.innerHTML = html;
-
-    const header = block.querySelector(".memories-header");
-    const items = block.querySelectorAll(".memory-item");
-    let collapsed = false;
-    header.addEventListener("click", () => {
-      collapsed = !collapsed;
-      items.forEach(el => { el.style.display = collapsed ? "none" : "block"; });
-      header.textContent = collapsed ? `🐕 I remember… (${memories.length} items)` : "🐕 I remember…";
-    });
-
-    conversation.appendChild(block);
-    scrollDown();
-  }
-
-  // ═══════════════════════════════════════════════════
-  // Streaming
-  // ═══════════════════════════════════════════════════
-  function startStreaming() {
+  function startStream() {
     if (streamingEl) conversation.removeChild(streamingEl);
     streamingEl = document.createElement("div");
     streamingEl.className = "message assistant streaming";
@@ -466,30 +262,22 @@
     streamingText = "";
   }
 
-  function appendToken(token) {
-    if (!streamingEl) startStreaming();
-    streamingText += token;
-    streamingEl.innerHTML = renderMarkdown(streamingText);
-    scrollDown();
+  function appendToken(tok) {
+    if (!streamingEl) startStream();
+    streamingText += tok;
+    streamingEl.innerHTML = md(esc(streamingText));
+    scroll();
   }
 
-  function finishStreaming() {
-    if (streamingEl) {
-      streamingEl.classList.remove("streaming");
-      streamingEl = null;
-      streamingText = "";
-    }
+  function finishStream() {
+    if (streamingEl) { streamingEl.classList.remove("streaming"); streamingEl = null; streamingText = ""; }
   }
 
-  // ═══════════════════════════════════════════════════
-  // Send
-  // ═══════════════════════════════════════════════════
   function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
-    addMessage("user", text);
-    userInput.value = "";
-    userInput.style.height = "auto";
+    addMsg("user", text);
+    userInput.value = ""; userInput.style.height = "auto";
     setLoading(true);
     setStatus("thinking", "Thinking…");
     vscode.postMessage({ type: "chat", text });
@@ -505,92 +293,66 @@
   });
 
   // ═══════════════════════════════════════════════════
-  // Message handler — Status updates go to StatusComponent, NOT conversation
+  // Message handler
   // ═══════════════════════════════════════════════════
   window.addEventListener("message", (event) => {
     const msg = event.data;
     switch (msg.type) {
-
       case "sprite_config":
-        configureStatusSprite(msg);
+        configureSprite(msg);
         break;
-
-      // Status messages update the StatusComponent IN PLACE
       case "status":
-        {
-          const m = msg.text.toLowerCase();
-          if (m.includes("fetching") || m.includes("sniffing") || m.includes("retriev")) {
-            setStatus("sniffing", msg.text);
-          } else if (m.includes("thinking") || m.includes("reasoning")) {
-            setStatus("thinking", msg.text);
-          } else if (m.includes("executing") || m.includes("running") || m.includes("tool")) {
-            setStatus("running", msg.text);
-          } else if (m.includes("learned") || m.includes("saving") || m.includes("extract")) {
-            setStatus("sniffing", msg.text);
-          } else if (m.includes("found") || m.includes("matched")) {
-            setStatus("sniffing", msg.text);
-          }
+        { const m=msg.text.toLowerCase();
+          if (m.includes("fetching")||m.includes("sniffing")) setStatus("sniffing", msg.text);
+          else if (m.includes("thinking")) setStatus("thinking", msg.text);
+          else if (m.includes("executing")||m.includes("running")||m.includes("tool")) setStatus("running", msg.text);
+          else if (m.includes("found")||m.includes("matched")||m.includes("learned")||m.includes("saving")) setStatus("sniffing", msg.text);
         }
         break;
-
       case "token":
         appendToken(msg.token);
         break;
-
       case "response":
-        finishStreaming();
-        addMessage("assistant", msg.content);
+        finishStream();
+        addMsg("assistant", msg.content);
         setLoading(false);
         setStatus("success", "Done");
-        setTimeout(() => setStatus("idle", "Ready"), 800);
+        setTimeout(() => setStatus("idle", "Ready"), 1000);
         break;
-
       case "tool":
-        addToolCall(msg.text);
+        addTool(msg.text);
         break;
-
-      case "memories_retrieved":
-        showMemories(msg.memories);
-        break;
-
       case "error":
-        finishStreaming();
-        const errEl = document.createElement("div");
-        errEl.className = "message assistant";
-        errEl.style.color = "#f44747";
-        errEl.textContent = "❌ " + msg.text;
+        finishStream();
+        const errEl=document.createElement("div");
+        errEl.className="message assistant"; errEl.style.color="#f44747";
+        errEl.textContent="❌ "+msg.text;
         conversation.appendChild(errEl);
         setLoading(false);
-        setStatus("error", "Error");
-        setTimeout(() => setStatus("idle", "Ready"), 800);
+        setStatus("error","Error");
+        setTimeout(()=>setStatus("idle","Ready"),1000);
         break;
-
       case "ready":
         setLoading(false);
-        setStatus("idle", "Ready");
+        setStatus("idle","Ready");
         break;
-
       case "setup":
         showSetup();
         break;
-
       case "health":
         showHealth(msg);
         break;
-
       case "setup_error":
         showSetupError(msg.text);
         break;
-
       case "dog_state":
-        // Extension can explicitly drive the status sprite
         setStatus(msg.state, msg.label);
         break;
     }
   });
 
   // ═══════════════════════════════════════════════════
-  // Setup flow
+  // Setup screen
   // ═══════════════════════════════════════════════════
   function showSetup() {
     conversation.innerHTML = `
@@ -606,52 +368,37 @@
         <div class="setup-hint">Or run <code>dog config</code> in the terminal.</div>
       </div>
     `;
-
-    document.getElementById("saveConfigBtn").addEventListener("click", () => {
+    const btn = document.getElementById("saveConfigBtn");
+    btn.addEventListener("click", () => {
       const apiKey = document.getElementById("apiKeyInput").value.trim();
       const model = document.getElementById("modelInput").value.trim();
       vscode.postMessage({ type: "setConfig", apiKey, model });
-      const btn = document.getElementById("saveConfigBtn");
-      btn.textContent = "Connecting…";
-      btn.disabled = true;
+      btn.textContent = "Connecting…"; btn.disabled = true;
     });
   }
 
   function showHealth(health) {
     const el = document.getElementById("healthStatus");
     if (!el) return;
-    const icon = (s) => s === "ok" ? "✅" : s === "missing" ? "⚠️" : "❌";
-    const label = (s) => {
-      if (s === "ok") return "Connected";
-      if (s === "missing") return "Not set";
-      return s.replace("error: ", "");
-    };
-    el.innerHTML = `
-      <div class="health-check">
-        <div>${icon(health.api_key)} API Key: ${label(health.api_key)}</div>
-        <div>${icon(health.database)} Database: ${label(health.database)}</div>
-        <div>${icon(health.embedding)} Embeddings: ${label(health.embedding)}</div>
-      </div>
-    `;
-    if (!health.all_ok && !document.querySelector(".health-hint")) {
-      const hintEl = document.createElement("div");
-      hintEl.className = "health-hint setup-hint";
-      hintEl.innerHTML = "Some services unavailable. Run <code>dog status</code> for details.";
-      el.appendChild(hintEl);
-    }
+    const icon = s => s==="ok"?"✅":s==="missing"?"⚠️":"❌";
+    const label = s => { if(s==="ok")return"Connected"; if(s==="missing")return"Not set"; return s.replace("error: ",""); };
+    el.innerHTML = `<div class="health-check">
+      <div>${icon(health.api_key)} API Key: ${label(health.api_key)}</div>
+      <div>${icon(health.database)} Database: ${label(health.database)}</div>
+      <div>${icon(health.embedding)} Embeddings: ${label(health.embedding)}</div>
+    </div>`;
   }
 
   function showSetupError(msg) {
     const el = document.getElementById("healthStatus");
-    if (el) {
-      el.innerHTML = `<div class="health-check" style="color: #f44747;">❌ ${escapeHtml(msg)}</div>`;
-    }
+    if (el) el.innerHTML = `<div class="health-check" style="color:#f44747;">❌ ${esc(msg)}</div>`;
     const btn = document.getElementById("saveConfigBtn");
     if (btn) { btn.textContent = "Retry"; btn.disabled = false; }
   }
 
   // Request initial state
   vscode.postMessage({ type: "ready" });
+})();
 </script>
 </body>
 </html>
