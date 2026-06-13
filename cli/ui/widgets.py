@@ -46,37 +46,6 @@ class DogMessage(Static):
         self.update(f"\U0001f415 {text}")
 
 
-class PlanPanel(Container):
-    """Panel showing the agent's high-level plan."""
-
-    DEFAULT_CSS = """
-    PlanPanel {
-        display: none;
-        border: solid yellow;
-        padding: 1;
-        margin: 1 0;
-        height: auto;
-    }
-    PlanPanel.visible {
-        display: block;
-    }
-    PlanPanel Static {
-        color: $text;
-    }
-    """
-
-    def show_plan(self, steps: list[str]):
-        self.remove_children()
-        self.mount(Static("[bold yellow]🐕 Plan:[/]"))
-        for i, step in enumerate(steps, 1):
-            self.mount(Static(f"  {i}. {step}"))
-        self.add_class("visible")
-
-    def hide(self):
-        self.remove_class("visible")
-        self.remove_children()
-
-
 class DiffPreview(RichLog):
     """RichLog pane showing file diffs or previews."""
 

@@ -11,15 +11,26 @@ Streaming chat uses JSON-RPC notifications:
 
 import asyncio
 import json
+import os
 import sys
 import traceback
 from typing import Any
+
+# Per-workspace agent state — persists across chat turns
+_agent_states: dict[str, "AgentState"] = {}
+
+
+def _workspace_name(workspace: str) -> str:
+    """Normalize a workspace path to a short name."""
+    return os.path.basename(os.path.abspath(workspace)) or workspace
 
 
 async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
     """Dispatch a JSON-RPC method to the appropriate handler."""
     if method == "chat":
         return await handle_chat(params, msg_id)
+    elif method == "reset_chat":
+        return await handle_reset_chat(params)
     elif method == "get_memories":
         return await handle_get_memories(params)
     elif method == "get_instincts":
@@ -28,6 +39,8 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
         return await handle_get_status(params)
     elif method == "set_config":
         return await handle_set_config(params)
+    elif method == "check_health":
+        return await handle_check_health()
     elif method == "ping":
         return {"pong": True}
     else:
@@ -35,8 +48,12 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
 
 
 async def handle_chat(params: dict, msg_id: Any) -> dict:
-    """Run a chat turn with streaming status + token notifications."""
-    from core.agent_loop import AgentState, init_agent, run_turn
+    """Run a chat turn with streaming status + token notifications.
+
+    Agent state is persisted per workspace across calls, so conversation
+    history and context carry forward between turns.
+    """
+    from core.agent_loop import init_agent, run_turn
     from core.provider import LiteLLMProvider
 
     user_input = params.get("user_input", "")
@@ -46,16 +63,20 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
     if not user_input.strip():
         return {"error": "user_input is required"}
 
-    # Initialize or reuse agent state (simple: new state per chat for now)
-    import os
+    ws_name = _workspace_name(workspace)
 
-    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
-    state = AgentState(workspace=ws_name)
+    # Reuse or create agent state for this workspace
+    if ws_name not in _agent_states:
+        from core.agent_loop import AgentState
 
-    try:
-        await init_agent(workspace)
-    except Exception:
-        pass  # DB might not be available, continue
+        state = AgentState(workspace=ws_name)
+        _agent_states[ws_name] = state
+        try:
+            await init_agent(workspace)
+        except Exception:
+            pass  # DB might not be available, continue
+    else:
+        state = _agent_states[ws_name]
 
     from core.config import load_config
 
@@ -74,6 +95,20 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
     def on_token(token: str):
         _notify("token", {"token": token})
 
+    def on_memories(memories: list):
+        _notify("memories", {
+            "memories": [
+                {
+                    "id": str(m.get("id", "")),
+                    "content": m.get("content", ""),
+                    "summary": m.get("summary", ""),
+                    "type": m.get("memory_type", "conversation"),
+                    "importance": float(m.get("importance", 0.5)),
+                }
+                for m in memories
+            ]
+        })
+
     try:
         response = await run_turn(
             provider,
@@ -81,10 +116,22 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
             user_input,
             on_status=on_status,
             on_token=on_token,
+            on_memories=on_memories,
         )
         return {"content": response}
     except Exception as e:
         return {"error": str(e), "content": ""}
+
+
+async def handle_reset_chat(params: dict) -> dict:
+    """Reset conversation history for a workspace."""
+    workspace = params.get("workspace", ".")
+    ws_name = _workspace_name(workspace)
+    if ws_name in _agent_states:
+        from core.agent_loop import AgentState
+
+        _agent_states[ws_name] = AgentState(workspace=ws_name)
+    return {"success": True}
 
 
 async def handle_get_memories(params: dict) -> dict:
@@ -96,9 +143,7 @@ async def handle_get_memories(params: dict) -> dict:
     query = params.get("query", "")
     limit = int(params.get("limit", 20))
 
-    import os
-
-    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+    ws_name = _workspace_name(workspace)
 
     try:
         embedding = await generate_embedding(query) if query else None
@@ -156,10 +201,7 @@ async def handle_get_status(params: dict) -> dict:
     from core.instincts import load_instincts
 
     workspace = params.get("workspace", ".")
-
-    import os
-
-    ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+    ws_name = _workspace_name(workspace)
 
     result = {
         "workspace": ws_name,
@@ -210,6 +252,72 @@ async def handle_set_config(params: dict) -> dict:
 
     save_config(config)
     return {"success": True}
+
+
+async def handle_check_health() -> dict:
+    """Run diagnostics: API key, database, embeddings.
+    
+    Skips provider validation if API key is missing — no point hitting the API.
+    """
+    result = {
+        "api_key": "not_checked",
+        "database": "not_checked",
+        "embedding": "not_checked",
+        "all_ok": False,
+    }
+
+    # Check API key presence and validity
+    try:
+        from core.config import load_config
+
+        config = load_config()
+        key = config.provider.api_key.strip() if config.provider.api_key else ""
+
+        if not key:
+            result["api_key"] = "missing"
+        elif len(key) < 8:
+            result["api_key"] = "invalid"
+        else:
+            from core.provider import LiteLLMProvider
+
+            provider = LiteLLMProvider(
+                model=config.provider.model,
+                api_key=key,
+                api_base=config.provider.api_base or None,
+            )
+            err = provider.check_connection()
+            result["api_key"] = "ok" if err is None else f"rejected"
+    except Exception as e:
+        result["api_key"] = f"error: {e}"
+
+    # Check database
+    try:
+        from core.db import get_pool, init_db
+
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            await conn.fetchrow("SELECT 1")
+        await init_db()
+        result["database"] = "ok"
+    except Exception as e:
+        result["database"] = f"error: {e}"
+
+    # Check embeddings (Ollama)
+    try:
+        from core.memory import check_ollama
+
+        status = await check_ollama()
+        result["embedding"] = "ok" if status is None else f"error: {status}"
+    except Exception as e:
+        result["embedding"] = f"error: {e}"
+
+    result["all_ok"] = (
+        result["api_key"] == "ok"
+        and result["database"] == "ok"
+        and result["embedding"] == "ok"
+    )
+
+    return result
 
 
 def _notify(method: str, params: dict):

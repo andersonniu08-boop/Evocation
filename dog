@@ -2,4 +2,11 @@
 # MemoryDog launcher — activates venv automatically, works from symlinks
 SCRIPT="$(readlink -f "$0")"
 DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-exec "$DIR/.venv/bin/dog" "$@"
+if [ -x "$DIR/.venv/bin/dog" ]; then
+    exec "$DIR/.venv/bin/dog" "$@"
+elif command -v python3 &>/dev/null; then
+    exec python3 -m cli.main "$@"
+else
+    echo "MemoryDog: could not find dog binary or python3" >&2
+    exit 1
+fi

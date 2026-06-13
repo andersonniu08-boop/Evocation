@@ -52,6 +52,7 @@ async def run_turn(
     user_input: str,
     on_status=None,
     on_token=None,
+    on_memories=None,
 ) -> str:
     _status("Matching instincts...", on_status)
     try:
@@ -68,10 +69,15 @@ async def run_turn(
     _status("Fetching memories...", on_status)
 
     try:
-        memory_context = await _retrieve_context(user_input, state.workspace, instincts, on_status)
+        memory_context, memory_results = await _retrieve_context(
+            user_input, state.workspace, instincts, on_status
+        )
+        if memory_results and on_memories:
+            on_memories(memory_results)
     except Exception:
         _status("Memory system not yet available", on_status)
         memory_context = ""
+        memory_results = []
 
     system_msg = _build_system_with_context(state.workspace, memory_context, instincts)
 
@@ -278,7 +284,7 @@ def _load_and_match_instincts(query: str, workspace: str) -> list:
     return [inst for inst, score in matched]
 
 
-async def _retrieve_context(query: str, workspace: str, instincts: list, on_status=None) -> str:
+async def _retrieve_context(query: str, workspace: str, instincts: list, on_status=None) -> tuple[str, list[dict]]:
     from core.instincts import get_retrieval_bias
     from core.memory import count_memories, generate_embedding
     from core.retrieval import log_retrieval_access, retrieve_memories
@@ -308,12 +314,12 @@ async def _retrieve_context(query: str, workspace: str, instincts: list, on_stat
         _status(f"No matching memories found (total: {total})", on_status)
 
     if not results:
-        return ""
+        return "", []
 
     lines = ["Relevant memories from previous sessions:"]
     for i, r in enumerate(results, 1):
         lines.append(f"{i}. [{r['memory_type']}] {r['content']}")
-    return "\n".join(lines)
+    return "\n".join(lines), results
 
 
 async def _handle_memory_search(params: dict, workspace: str) -> dict:

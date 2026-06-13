@@ -170,13 +170,9 @@ class LiteLLMProvider(BaseProvider):
                     has_content = bool(choice.delta.content)
                     has_tool_calls = bool(choice.delta.tool_calls)
 
-                    if has_content and not has_tool_calls:
+                    if has_content:
                         full_content += choice.delta.content
                         yield choice.delta.content
-                    elif has_content and has_tool_calls:
-                        pass
-                    elif has_tool_calls:
-                        pass
 
                     if has_tool_calls:
                         for tc in choice.delta.tool_calls:

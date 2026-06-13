@@ -8,7 +8,7 @@ from textual.containers import Container, Horizontal
 from textual.screen import Screen
 from textual.widgets import Header, Input, RichLog, Static
 
-from cli.ui.widgets import DiffPreview, PlanPanel, StatusBar, ToolOutput
+from cli.ui.widgets import DiffPreview, StatusBar, ToolOutput
 from core.provider import BaseProvider, MockProvider
 
 
@@ -43,7 +43,6 @@ class ChatScreen(Screen):
         yield Header(show_clock=True)
         with Horizontal(id="main-layout"):
             with Container(id="left-pane"):
-                yield PlanPanel(id="plan-panel")
                 yield RichLog(id="conversation", highlight=True, markup=True, wrap=True)
                 yield Static(id="streaming-response")
             with Container(id="right-pane"):
@@ -147,18 +146,6 @@ class ChatScreen(Screen):
         conv.scroll_end()
         event.input.disabled = False
         event.input.focus()
-
-    def _maybe_show_plan(self, conv: RichLog, text: str):
-        try:
-            if "```json" in text:
-                start = text.index("```json") + 7
-                end = text.index("```", start)
-                plan_data = json.loads(text[start:end])
-                if "plan" in plan_data:
-                    steps = plan_data["plan"]
-                    self.query_one("#plan-panel", PlanPanel).show_plan(steps)
-        except (ValueError, json.JSONDecodeError, KeyError):
-            pass
 
     async def _update_preview(self, conv: RichLog):
 

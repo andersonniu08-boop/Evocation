@@ -22,7 +22,15 @@ cli/                 Textual TUI frontend (imports core)
 
 vscode/              VS Code extension (TypeScript)
   src/extension.ts   Extension entry, terminal + webview
+  src/assets.ts      Sprite constants and asset path helpers
   src/webview/       Sidebar panels (HTML/JS)
+  assets/            Packaged assets (icons, sprites)
+
+assets/              Project-level assets (canonical sources)
+  dog/               🐕 MemoryDog mascot sprite sheet + docs
+  screenshots/       Application screenshots
+  gifs/              Animated demo GIFs
+  icons/             App icons
 ```
 
 **Both frontends import `core/`.** No duplication of agent logic, memory, retrieval, or instincts.
@@ -37,6 +45,8 @@ vscode/              VS Code extension (TypeScript)
 - 🐕 Dog persona in status chrome only — never in agent responses to user
 - Status messages through `dog_status(message)` / `on_status` callback
 - Memory extraction uses `_parse_memory_json()` for provider-agnostic parsing
+- Mascot sprite sheet at `assets/dog/memorydog_spritesheet.png`; VS Code loads from `vscode/assets/dog/`
+- Sprite constants centralized in `vscode/src/assets.ts` — frame grid, state map, durations
 
 ## MVP Scope — Implemented
 

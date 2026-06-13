@@ -62,6 +62,7 @@ export class MemoryDogBridge {
   private buffer = "";
   private onStatus: ((msg: string) => void) | null = null;
   private onToken: ((token: string) => void) | null = null;
+  private onMemories: ((memories: MemoryRecord[]) => void) | null = null;
   private outputChannel: vscode.OutputChannel;
 
   constructor() {
@@ -166,10 +167,12 @@ export class MemoryDogBridge {
     userInput: string,
     workspace: string,
     onStatus: (msg: string) => void,
-    onToken: (token: string) => void
+    onToken: (token: string) => void,
+    onMemories?: (memories: MemoryRecord[]) => void
   ): Promise<string> {
     this.onStatus = onStatus;
     this.onToken = onToken;
+    this.onMemories = onMemories || null;
 
     try {
       const result = await this.call("chat", {
@@ -180,6 +183,7 @@ export class MemoryDogBridge {
     } finally {
       this.onStatus = null;
       this.onToken = null;
+      this.onMemories = null;
     }
   }
 
@@ -213,6 +217,17 @@ export class MemoryDogBridge {
     await this.call("set_config", params);
   }
 
+  /** Reset conversation history for the current workspace. */
+  async resetChat(workspace: string): Promise<void> {
+    await this.call("reset_chat", { workspace });
+  }
+
+  /** Run health checks (API key, database, embeddings). */
+  async checkHealth(): Promise<{ api_key: string; database: string; embedding: string; all_ok: boolean }> {
+    const result = await this.call("check_health", {});
+    return result as unknown as { api_key: string; database: string; embedding: string; all_ok: boolean };
+  }
+
   /** Process buffered stdout lines. */
   private processBuffer(): void {
     const lines = this.buffer.split("\n");
@@ -237,6 +252,8 @@ export class MemoryDogBridge {
         this.onStatus(notif.params.message as string);
       } else if (notif.method === "token" && this.onToken) {
         this.onToken(notif.params.token as string);
+      } else if (notif.method === "memories" && this.onMemories) {
+        this.onMemories((notif.params.memories as MemoryRecord[]) || []);
       }
       return;
     }

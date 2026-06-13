@@ -12,19 +12,25 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
+    "onCommand:memorydog.openChat",
     "onCommand:memorydog.focusChat",
     "onCommand:memorydog.showQuickActions",
     "onCommand:memorydog.configure",
-    "onView:memorydog.chatView",
     "onView:memorydog.memoryPanel",
-    "onView:memorydog.instinctPanel",
-    "onView:memorydog.dogView"
+    "onView:memorydog.instinctPanel"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
+      {
+        "command": "memorydog.openChat",
+        "title": "MemoryDog: Open Chat",
+        "icon": "$(comment-discussion)"
+      },
       {
         "command": "memorydog.focusChat",
         "title": "MemoryDog: Focus Chat"
@@ -52,10 +58,6 @@
       {
         "command": "memorydog.showInstinctPanel",
         "title": "MemoryDog: Show Instincts"
-      },
-      {
-        "command": "memorydog.showDogView",
-        "title": "MemoryDog: Show Mascot"
       }
     ],
     "viewsContainers": {
@@ -71,11 +73,6 @@
       "memorydog": [
         {
           "type": "webview",
-          "id": "memorydog.chatView",
-          "name": "Chat"
-        },
-        {
-          "type": "webview",
           "id": "memorydog.memoryPanel",
           "name": "Memories"
         },
@@ -83,11 +80,6 @@
           "type": "webview",
           "id": "memorydog.instinctPanel",
           "name": "Instincts"
-        },
-        {
-          "type": "webview",
-          "id": "memorydog.dogView",
-          "name": "Mascot"
         }
       ]
     },
@@ -109,10 +101,12 @@
   },
   "scripts": {
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
   },
   "devDependencies": {
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.9.2",
     "typescript": "^5.3.0"
   }
 }

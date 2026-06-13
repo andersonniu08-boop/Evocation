@@ -16,6 +16,9 @@
     --dog-bubble: #333333;
     --status-color: #cca700;
     --tool-color: #4ec9b0;
+    --success: #4ec9b0;
+    --error: #f44747;
+    --warn: #cca700;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,21 +34,80 @@
     overflow: hidden;
   }
 
-  /* Conversation area */
+  /* ═══════════════════════════════════════════════════
+     StatusComponent — single updating status row
+     ═══════════════════════════════════════════════════ */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    min-height: 52px;
+    flex-shrink: 0;
+  }
+
+  /* Tiny sprite beside status text */
+  .status-sprite {
+    width: 40px;
+    height: 76px;
+    background-color: var(--surface);
+    background-size: 160px 152px;  /* 4 cols * 40, 2 rows * 76 */
+    background-repeat: no-repeat;
+    flex-shrink: 0;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .status-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--fg);
+    transition: color 0.2s;
+  }
+  .status-text.s-thinking { color: var(--accent); }
+  .status-text.s-sniffing { color: var(--warn); }
+  .status-text.s-running  { color: var(--accent); }
+  .status-text.s-success  { color: var(--success); }
+  .status-text.s-error    { color: var(--error); }
+
+  /* Status sprite micro-animations (subtle) */
+  .status-sprite.anim-breathe  { animation: statusBreathe 3s ease-in-out infinite; }
+  .status-sprite.anim-think    { animation: statusThink 1.2s ease-in-out infinite alternate; }
+  .status-sprite.anim-sniff    { animation: statusSniff 0.45s ease-in-out infinite alternate; }
+  .status-sprite.anim-run      { animation: statusBounce 0.25s ease-in-out infinite alternate; }
+  .status-sprite.anim-success  { animation: statusPop 0.3s ease-in-out 2; }
+  .status-sprite.anim-error    { animation: statusShake 0.3s ease-in-out 3; }
+  .status-sprite.anim-sleeping { animation: statusFade 3s ease-in-out infinite; }
+  .status-sprite.anim-startup  { animation: statusGrow 0.6s ease-out; }
+
+  @keyframes statusBreathe { 0%,100%{ transform:scale(1); } 50%{ transform:scale(1.05); } }
+  @keyframes statusThink   { 0%{ transform:rotate(-1.5deg); } 100%{ transform:rotate(1.5deg); } }
+  @keyframes statusSniff   { 0%{ transform:translateX(-2px); } 100%{ transform:translateX(2px); } }
+  @keyframes statusBounce  { 0%{ transform:translateY(0); } 100%{ transform:translateY(-4px); } }
+  @keyframes statusPop     { 0%,100%{ transform:translateY(0) scale(1); } 50%{ transform:translateY(-6px) scale(1.08); } }
+  @keyframes statusShake   { 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-2px); } 75%{ transform:translateX(2px); } }
+  @keyframes statusFade    { 0%,100%{ opacity:0.5; } 50%{ opacity:0.8; } }
+  @keyframes statusGrow    { 0%{ transform:scale(0.6); opacity:0.3; } 60%{ transform:scale(1.06); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
+
+  /* ═══════════════════════════════════════════════════
+     Conversation area
+     ═══════════════════════════════════════════════════ */
   .conversation {
     flex: 1;
     overflow-y: auto;
-    padding: 16px;
+    padding: 16px 20px;
     display: flex;
     flex-direction: column;
     gap: 12px;
   }
 
   .message {
-    max-width: 90%;
+    max-width: 75%;
     padding: 10px 14px;
     border-radius: 12px;
-    line-height: 1.5;
+    line-height: 1.55;
     word-break: break-word;
     animation: fadeIn 0.2s ease;
   }
@@ -67,13 +129,6 @@
     border-bottom-left-radius: 4px;
   }
 
-  .message .sender {
-    font-size: 11px;
-    font-weight: 600;
-    margin-bottom: 4px;
-    opacity: 0.8;
-  }
-
   .message pre {
     background: #1a1a1a;
     border-radius: 6px;
@@ -91,24 +146,7 @@
     padding: 1px 4px;
     border-radius: 3px;
   }
-
-  .message pre code {
-    background: none;
-    padding: 0;
-  }
-
-  /* Status messages */
-  .status-line {
-    font-size: 12px;
-    color: var(--status-color);
-    padding: 4px 0;
-    font-style: italic;
-    align-self: flex-start;
-  }
-
-  .status-line::before {
-    content: "🐕 ";
-  }
+  .message pre code { background: none; padding: 0; }
 
   /* Tool call display */
   .tool-call {
@@ -120,20 +158,48 @@
     border-radius: 4px;
     align-self: flex-start;
     font-family: monospace;
+    max-width: 75%;
   }
 
   /* Streaming response */
-  .streaming {
-    opacity: 0.85;
+  .streaming { opacity: 0.85; }
+
+  /* Retrieved memories block */
+  .memories-block {
+    background: rgba(0, 122, 204, 0.08);
+    border: 1px solid rgba(0, 122, 204, 0.25);
+    border-radius: 8px;
+    padding: 10px 14px;
+    align-self: flex-start;
+    max-width: 75%;
+    animation: fadeIn 0.3s ease;
+  }
+  .memories-block .memories-header {
+    font-size: 12px; font-weight: 600;
+    color: var(--accent); margin-bottom: 6px;
+    cursor: pointer; user-select: none;
+  }
+  .memories-block .memories-header::before { content: "🐕 "; }
+  .memories-block .memory-item {
+    font-size: 12px; padding: 3px 0; color: var(--fg);
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .memories-block .memory-item:first-of-type { border-top: none; }
+  .memories-block .memory-type {
+    color: var(--muted); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.5px;
   }
 
-  /* Input area */
+  /* ═══════════════════════════════════════════════════
+     Input area
+     ═══════════════════════════════════════════════════ */
   .input-area {
     border-top: 1px solid var(--border);
-    padding: 12px 16px;
+    padding: 12px 20px;
     display: flex;
     gap: 8px;
     background: var(--bg);
+    flex-shrink: 0;
   }
 
   .input-area textarea {
@@ -141,153 +207,95 @@
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--fg);
-    padding: 10px 12px;
+    padding: 10px 14px;
     border-radius: 8px;
     font-family: inherit;
     font-size: 13px;
     resize: none;
     outline: none;
-    min-height: 40px;
-    max-height: 120px;
+    min-height: 42px;
+    max-height: 200px;
     line-height: 1.4;
   }
 
-  .input-area textarea:focus {
-    border-color: var(--accent);
-  }
-
-  .input-area textarea::placeholder {
-    color: var(--muted);
-  }
+  .input-area textarea:focus { border-color: var(--accent); }
+  .input-area textarea::placeholder { color: var(--muted); }
 
   .input-area button {
     background: var(--accent);
     color: white;
     border: none;
-    padding: 8px 18px;
+    padding: 8px 20px;
     border-radius: 8px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.2s;
     white-space: nowrap;
+    flex-shrink: 0;
   }
-
   .input-area button:hover { opacity: 0.85; }
   .input-area button:active { opacity: 0.7; }
-  .input-area button:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-  }
+  .input-area button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-  /* Dog state indicator */
-  .dog-indicator {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--muted);
-  }
-
-  .dog-indicator .state-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--muted);
-    transition: background 0.3s;
-  }
-
-  .dog-indicator .state-dot.sniffing {
-    background: var(--status-color);
-    animation: pulse 0.5s ease-in-out infinite alternate;
-  }
-
-  .dog-indicator .state-dot.excited {
-    background: #4ec9b0;
-    animation: pulse 0.2s ease-in-out infinite alternate;
-  }
-
-  .dog-indicator .state-dot.sleeping {
-    background: #555;
-  }
-
-  @keyframes pulse {
-    from { transform: scale(1); opacity: 0.5; }
-    to { transform: scale(1.3); opacity: 1; }
-  }
-
-  /* Welcome screen */
+  /* ═══════════════════════════════════════════════════
+     Welcome / Setup screen
+     ═══════════════════════════════════════════════════ */
   .welcome {
     text-align: center;
-    padding: 40px 20px;
+    padding: 60px 20px;
     color: var(--muted);
-  }
-
-  .welcome h2 {
-    font-size: 24px;
-    margin-bottom: 8px;
-    color: var(--fg);
-  }
-
-  .welcome .setup-hint {
-    margin-top: 16px;
-    font-size: 12px;
-    color: var(--status-color);
-  }
-
-  /* Setup form */
-  .setup-form {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    max-width: 400px;
-    margin: 20px auto;
+    align-items: center;
+    justify-content: center;
   }
-
+  .welcome h2 { font-size: 22px; margin-bottom: 8px; color: var(--fg); }
+  .setup-form {
+    display: flex; flex-direction: column; gap: 10px;
+    max-width: 400px; width: 100%; margin: 20px auto;
+  }
   .setup-form input {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    color: var(--fg);
-    padding: 8px 12px;
-    border-radius: 6px;
-    font-size: 13px;
-    outline: none;
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--fg); padding: 8px 12px; border-radius: 6px;
+    font-size: 13px; outline: none;
   }
-
-  .setup-form input:focus {
-    border-color: var(--accent);
-  }
-
+  .setup-form input:focus { border-color: var(--accent); }
   .setup-form button {
-    background: var(--accent);
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--accent); color: white; border: none;
+    padding: 8px 16px; border-radius: 6px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
   }
+  .health-check {
+    max-width: 400px; margin: 12px auto; padding: 12px;
+    background: var(--surface); border-radius: 8px;
+    font-size: 12px; line-height: 2; text-align: left;
+  }
+  .setup-hint { margin-top: 16px; font-size: 12px; color: var(--status-color); }
+  .health-hint { max-width: 400px; margin: 8px auto 0; }
 </style>
 </head>
 <body>
 
-<div class="dog-indicator" id="dogIndicator">
-  <span class="state-dot" id="stateDot"></span>
-  <span id="dogStatus">🐕 Ready</span>
+<!-- ═══════════════════════════════════════════════════
+     StatusComponent — single updating row
+     ═══════════════════════════════════════════════════ -->
+<div class="status-bar" id="statusBar">
+  <div class="status-sprite anim-sleeping" id="statusSprite"></div>
+  <span class="status-text" id="statusText">Initializing…</span>
 </div>
 
+<!-- ═══════════════════════════════════════════════════
+     Conversation — clean, no status messages here
+     ═══════════════════════════════════════════════════ -->
 <div class="conversation" id="conversation"></div>
 
+<!-- ═══════════════════════════════════════════════════
+     Input
+     ═══════════════════════════════════════════════════ -->
 <div class="input-area">
-  <textarea
-    id="userInput"
-    placeholder="Type your message... (Enter to send, Shift+Enter for newline)"
-    rows="1"
-  ></textarea>
+  <textarea id="userInput" placeholder="Message MemoryDog… (Enter to send, Shift+Enter for newline)" rows="1"></textarea>
   <button id="sendBtn">Send</button>
 </div>
 
@@ -296,40 +304,105 @@
   const conversation = document.getElementById("conversation");
   const userInput = document.getElementById("userInput");
   const sendBtn = document.getElementById("sendBtn");
-  const dogStatus = document.getElementById("dogStatus");
-  const stateDot = document.getElementById("stateDot");
-  const dogIndicator = document.getElementById("dogIndicator");
+  const statusBar = document.getElementById("statusBar");
+  const statusSprite = document.getElementById("statusSprite");
+  const statusText = document.getElementById("statusText");
 
   let streamingEl = null;
   let streamingText = "";
+  let spriteConfig = null;
 
+  // ═══════════════════════════════════════════════════
+  // StatusComponent — updates IN PLACE, never appends
+  // ═══════════════════════════════════════════════════
+  const STATUS_FRAMES = {
+    idle:     { col: 0, row: 0, label: "Ready",         anim: "anim-breathe" },
+    thinking: { col: 1, row: 0, label: "Thinking…",      anim: "anim-think" },
+    sniffing: { col: 2, row: 0, label: "Fetching memories…", anim: "anim-sniff" },
+    running:  { col: 3, row: 0, label: "Running tools…",   anim: "anim-run" },
+    success:  { col: 0, row: 1, label: "Done",           anim: "anim-success" },
+    error:    { col: 1, row: 1, label: "Error",          anim: "anim-error" },
+    sleeping: { col: 2, row: 1, label: "Disconnected",   anim: "anim-sleeping" },
+    startup:  { col: 3, row: 1, label: "Starting…",      anim: "anim-startup" },
+  };
+
+  function setStatus(state, labelOverride) {
+    const entry = STATUS_FRAMES[state] || STATUS_FRAMES.idle;
+    const label = labelOverride || entry.label;
+
+    // Update sprite frame via background-position
+    if (spriteConfig) {
+      const cfg = spriteConfig;
+      const DW = 40;
+      const DH = Math.round((cfg.frameHeight / cfg.frameWidth) * DW);
+      const x = -(entry.col * DW);
+      const y = -(entry.row * DH);
+      statusSprite.style.backgroundPosition = x + "px " + y + "px";
+    }
+
+    // Update text
+    statusText.textContent = label;
+    statusText.className = "status-text s-" + state;
+
+    // Update animation class
+    statusSprite.className = "status-sprite " + (entry.anim || "");
+  }
+
+  function configureStatusSprite(config) {
+    spriteConfig = config;
+    const DW = 40;
+    const fw = config.frameWidth || 531;
+    const fh = config.frameHeight || 1008;
+    const DH = Math.round((fh / fw) * DW);
+    const cols = config.columns || 4;
+    const rows = config.rows || 2;
+
+    statusSprite.style.width = DW + "px";
+    statusSprite.style.height = DH + "px";
+    statusSprite.style.backgroundSize = (DW * cols) + "px " + (DH * rows) + "px";
+
+    if (config.spriteUrl) {
+      statusSprite.style.backgroundImage = `url('${config.spriteUrl}')`;
+    }
+    setStatus("idle", "Ready");
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Helpers
+  // ═══════════════════════════════════════════════════
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
   }
 
-  function addStatus(msg) {
-    const el = document.createElement("div");
-    el.className = "status-line";
-    el.textContent = msg;
-    conversation.appendChild(el);
-    scrollDown();
-
-    // Update dog indicator
-    if (msg.toLowerCase().includes("fetching") || msg.toLowerCase().includes("sniffing")) {
-      setDogState("sniffing", msg);
-    } else if (msg.toLowerCase().includes("found") || msg.toLowerCase().includes("learned") || msg.toLowerCase().includes("activated")) {
-      setDogState("excited", msg);
-    } else if (msg.toLowerCase().includes("thinking") || msg.toLowerCase().includes("running")) {
-      setDogState("sniffing", msg);
-    } else if (msg.toLowerCase().includes("ready") || msg.toLowerCase().includes("done")) {
-      setDogState("idle", msg);
-    } else {
-      setDogState("sniffing", msg);
-    }
+  function simpleMarkdown(text) {
+    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) =>
+      "<pre><code>" + escapeHtml(code.trim()) + "</code></pre>"
+    );
+    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
+    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+    return text;
   }
 
+  function renderMarkdown(text) {
+    return simpleMarkdown(escapeHtml(text));
+  }
+
+  function scrollDown() {
+    conversation.scrollTop = conversation.scrollHeight;
+  }
+
+  function setLoading(loading) {
+    userInput.disabled = loading;
+    sendBtn.disabled = loading;
+    if (!loading) userInput.focus();
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Message rendering (NO status lines in conversation)
+  // ═══════════════════════════════════════════════════
   function addMessage(role, content) {
     if (!content) return;
     const el = document.createElement("div");
@@ -348,30 +421,45 @@
     el.className = "tool-call";
     el.textContent = "🔧 " + text;
     conversation.appendChild(el);
+    scrollDown();
   }
 
-  function simpleMarkdown(text) {
-    // Code blocks
-    text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
-      return "<pre><code>" + escapeHtml(code.trim()) + "</code></pre>";
-    });
-    // Inline code
-    text = text.replace(/`([^`]+)`/g, "<code>$1</code>");
-    // Bold
-    text = text.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-    // Italic
-    text = text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
-    return text;
-  }
+  function showMemories(memories) {
+    if (!memories || memories.length === 0) return;
+    const block = document.createElement("div");
+    block.className = "memories-block";
 
-  function renderMarkdown(text) {
-    return simpleMarkdown(escapeHtml(text));
-  }
+    const typeLabels = {
+      design_decision: "Design", learned_fact: "Fact", bug: "Bug",
+      user_preference: "Preference", code_snippet: "Code", task_history: "Task",
+      conversation: "Memory",
+    };
 
-  function startStreaming() {
-    if (streamingEl) {
-      conversation.removeChild(streamingEl);
+    let html = '<div class="memories-header">I remember…</div>';
+    for (const m of memories) {
+      const typeLabel = typeLabels[m.type] || m.type || "Memory";
+      html += `<div class="memory-item"><span class="memory-type">${typeLabel}</span> ${escapeHtml(m.content || m.summary || "")}</div>`;
     }
+    block.innerHTML = html;
+
+    const header = block.querySelector(".memories-header");
+    const items = block.querySelectorAll(".memory-item");
+    let collapsed = false;
+    header.addEventListener("click", () => {
+      collapsed = !collapsed;
+      items.forEach(el => { el.style.display = collapsed ? "none" : "block"; });
+      header.textContent = collapsed ? `🐕 I remember… (${memories.length} items)` : "🐕 I remember…";
+    });
+
+    conversation.appendChild(block);
+    scrollDown();
+  }
+
+  // ═══════════════════════════════════════════════════
+  // Streaming
+  // ═══════════════════════════════════════════════════
+  function startStreaming() {
+    if (streamingEl) conversation.removeChild(streamingEl);
     streamingEl = document.createElement("div");
     streamingEl.className = "message assistant streaming";
     conversation.appendChild(streamingEl);
@@ -379,7 +467,7 @@
   }
 
   function appendToken(token) {
-    if (!streamingEl) { startStreaming(); }
+    if (!streamingEl) startStreaming();
     streamingText += token;
     streamingEl.innerHTML = renderMarkdown(streamingText);
     scrollDown();
@@ -393,58 +481,56 @@
     }
   }
 
-  function setDogState(state, label) {
-    stateDot.className = "state-dot " + state;
-    dogStatus.textContent = "🐕 " + (label || state);
-  }
-
-  function scrollDown() {
-    conversation.scrollTop = conversation.scrollHeight;
-  }
-
-  function setLoading(loading) {
-    userInput.disabled = loading;
-    sendBtn.disabled = loading;
-    if (!loading) {
-      userInput.focus();
-    }
-  }
-
+  // ═══════════════════════════════════════════════════
+  // Send
+  // ═══════════════════════════════════════════════════
   function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
-
     addMessage("user", text);
     userInput.value = "";
     userInput.style.height = "auto";
     setLoading(true);
-
+    setStatus("thinking", "Thinking…");
     vscode.postMessage({ type: "chat", text });
   }
 
-  // Event listeners
   sendBtn.addEventListener("click", sendMessage);
-
   userInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   });
-
-  // Auto-resize textarea
   userInput.addEventListener("input", () => {
     userInput.style.height = "auto";
-    userInput.style.height = Math.min(userInput.scrollHeight, 120) + "px";
+    userInput.style.height = Math.min(userInput.scrollHeight, 200) + "px";
   });
 
-  // Handle messages from extension
+  // ═══════════════════════════════════════════════════
+  // Message handler — Status updates go to StatusComponent, NOT conversation
+  // ═══════════════════════════════════════════════════
   window.addEventListener("message", (event) => {
     const msg = event.data;
-
     switch (msg.type) {
+
+      case "sprite_config":
+        configureStatusSprite(msg);
+        break;
+
+      // Status messages update the StatusComponent IN PLACE
       case "status":
-        addStatus(msg.text);
+        {
+          const m = msg.text.toLowerCase();
+          if (m.includes("fetching") || m.includes("sniffing") || m.includes("retriev")) {
+            setStatus("sniffing", msg.text);
+          } else if (m.includes("thinking") || m.includes("reasoning")) {
+            setStatus("thinking", msg.text);
+          } else if (m.includes("executing") || m.includes("running") || m.includes("tool")) {
+            setStatus("running", msg.text);
+          } else if (m.includes("learned") || m.includes("saving") || m.includes("extract")) {
+            setStatus("sniffing", msg.text);
+          } else if (m.includes("found") || m.includes("matched")) {
+            setStatus("sniffing", msg.text);
+          }
+        }
         break;
 
       case "token":
@@ -455,11 +541,16 @@
         finishStreaming();
         addMessage("assistant", msg.content);
         setLoading(false);
-        setDogState("idle", "Ready");
+        setStatus("success", "Done");
+        setTimeout(() => setStatus("idle", "Ready"), 800);
         break;
 
       case "tool":
         addToolCall(msg.text);
+        break;
+
+      case "memories_retrieved":
+        showMemories(msg.memories);
         break;
 
       case "error":
@@ -470,33 +561,49 @@
         errEl.textContent = "❌ " + msg.text;
         conversation.appendChild(errEl);
         setLoading(false);
-        setDogState("idle", "Ready");
+        setStatus("error", "Error");
+        setTimeout(() => setStatus("idle", "Ready"), 800);
         break;
 
       case "ready":
-        setDogState("idle", "Ready");
         setLoading(false);
+        setStatus("idle", "Ready");
         break;
 
       case "setup":
         showSetup();
         break;
+
+      case "health":
+        showHealth(msg);
+        break;
+
+      case "setup_error":
+        showSetupError(msg.text);
+        break;
+
+      case "dog_state":
+        // Extension can explicitly drive the status sprite
+        setStatus(msg.state, msg.label);
+        break;
     }
   });
 
+  // ═══════════════════════════════════════════════════
+  // Setup flow
+  // ═══════════════════════════════════════════════════
   function showSetup() {
     conversation.innerHTML = `
       <div class="welcome">
         <h2>🐕 MemoryDog</h2>
         <p>A memory-augmented coding agent that gets better the longer you work with it.</p>
         <div class="setup-form">
-          <input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-...)" />
+          <input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-…)" />
           <input type="text" id="modelInput" placeholder="Model (default: deepseek/deepseek-chat)" />
-          <button id="saveConfigBtn">Save & Start</button>
+          <button id="saveConfigBtn">Save &amp; Start</button>
         </div>
-        <div class="setup-hint">
-          Or run <code>dog config</code> in the terminal.
-        </div>
+        <div id="healthStatus"></div>
+        <div class="setup-hint">Or run <code>dog config</code> in the terminal.</div>
       </div>
     `;
 
@@ -504,8 +611,43 @@
       const apiKey = document.getElementById("apiKeyInput").value.trim();
       const model = document.getElementById("modelInput").value.trim();
       vscode.postMessage({ type: "setConfig", apiKey, model });
-      conversation.innerHTML = '<div class="status-line">🐕 Configuring...</div>';
+      const btn = document.getElementById("saveConfigBtn");
+      btn.textContent = "Connecting…";
+      btn.disabled = true;
     });
+  }
+
+  function showHealth(health) {
+    const el = document.getElementById("healthStatus");
+    if (!el) return;
+    const icon = (s) => s === "ok" ? "✅" : s === "missing" ? "⚠️" : "❌";
+    const label = (s) => {
+      if (s === "ok") return "Connected";
+      if (s === "missing") return "Not set";
+      return s.replace("error: ", "");
+    };
+    el.innerHTML = `
+      <div class="health-check">
+        <div>${icon(health.api_key)} API Key: ${label(health.api_key)}</div>
+        <div>${icon(health.database)} Database: ${label(health.database)}</div>
+        <div>${icon(health.embedding)} Embeddings: ${label(health.embedding)}</div>
+      </div>
+    `;
+    if (!health.all_ok && !document.querySelector(".health-hint")) {
+      const hintEl = document.createElement("div");
+      hintEl.className = "health-hint setup-hint";
+      hintEl.innerHTML = "Some services unavailable. Run <code>dog status</code> for details.";
+      el.appendChild(hintEl);
+    }
+  }
+
+  function showSetupError(msg) {
+    const el = document.getElementById("healthStatus");
+    if (el) {
+      el.innerHTML = `<div class="health-check" style="color: #f44747;">❌ ${escapeHtml(msg)}</div>`;
+    }
+    const btn = document.getElementById("saveConfigBtn");
+    if (btn) { btn.textContent = "Retry"; btn.disabled = false; }
   }
 
   // Request initial state

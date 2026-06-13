@@ -158,6 +158,20 @@
     color: var(--muted);
     margin-bottom: 10px;
   }
+
+  .memory-item.highlighted {
+    border-left-color: #4ec9b0;
+    background: rgba(78, 201, 176, 0.08);
+  }
+
+  .memory-item.highlighted::after {
+    content: "🐕 retrieved";
+    font-size: 9px;
+    color: #4ec9b0;
+    float: right;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
 </style>
 </head>
 <body>
@@ -204,22 +218,26 @@
     return d.toLocaleDateString();
   }
 
-  function renderMemories(memories) {
+  function renderMemories(memories, highlighted) {
     if (!memories || memories.length === 0) {
       memoryList.innerHTML =
         '<div class="empty">No memories found.</div>';
       return;
     }
+    const hlSet = new Set(highlighted || []);
     memoryList.innerHTML = memories
       .map(
-        (m) => `
-      <div class="memory-item">
+        (m) => {
+          const isHl = hlSet.has(m.id);
+          return `
+      <div class="memory-item${isHl ? " highlighted" : ""}">
         <div class="meta">
-          <span class="workspace-tag">${escapeHtml(m.workspace || "global")}</span>
+          <span class="workspace-tag">${escapeHtml(m.workspace || m.workspace_name || "global")}</span>
           <span class="timestamp">${formatTime(m.timestamp || m.created_at)}</span>
         </div>
-        <div class="content">${escapeHtml(m.content || m.text || "")}</div>
-      </div>`
+        <div class="content">${escapeHtml(m.content || m.summary || m.text || "")}</div>
+      </div>`;
+        }
       )
       .join("");
   }
@@ -245,7 +263,7 @@
     if (msg.type === "memories") {
       hideStatus();
       memoryCount.textContent = msg.total || msg.memories?.length || 0;
-      renderMemories(msg.memories);
+      renderMemories(msg.memories, msg.highlighted);
     }
 
     if (msg.type === "status") {
