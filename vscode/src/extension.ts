@@ -268,11 +268,14 @@ function sendToChat(session: Session, msg: any) {
 
 async function handleSetConfig(session: Session, msg: any) {
   const apiKey = (msg.apiKey || "").trim();
-  if (!apiKey) {
-    sendToChat(session, { type: "setup_error", text: "Please enter an API key." });
+  const model = (msg.model || "").trim();
+  const isLocalModel = model && !model.includes("/");  // Ollama models don't use provider/model format
+
+  if (!isLocalModel && !apiKey) {
+    sendToChat(session, { type: "setup_error", text: "API key required for cloud models." });
     return;
   }
-  if (apiKey.length < 8) {
+  if (!isLocalModel && apiKey.length < 8) {
     sendToChat(session, { type: "setup_error", text: "API key is too short." });
     return;
   }

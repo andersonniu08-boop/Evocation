@@ -317,23 +317,18 @@
 
     conv.innerHTML = `<div class="welcome">
       <h2>🐕 MemoryDog</h2>
-      <p>A memory-augmented coding agent.</p>
+      <p>A memory-augmented coding agent running locally via Ollama.</p>
       <div class="setup-form">
-        <label style="font-size:12px;text-align:left">Model — choose a local model or enter any Ollama/LiteLLM model name</label>
-        <select id="modelSelect" style="background:var(--surface);border:1px solid var(--border);color:var(--fg);padding:8px 12px;border-radius:6px;font-size:13px;outline:none">${opts}</select>
-        <input type="text" id="customModel" placeholder="Or type any model name (e.g. llama3.2, deepseek/deepseek-chat)" style="background:var(--surface);border:1px solid var(--border);color:var(--fg);padding:8px 12px;border-radius:6px;font-size:13px;outline:none" />
-        <input type="password" id="apiKeyInput" placeholder="API key (for cloud models only)" style="background:var(--surface);border:1px solid var(--border);color:var(--fg);padding:8px 12px;border-radius:6px;font-size:13px;outline:none" />
+        <select id="modelSelect" style="background:var(--surface);border:1px solid var(--accent);color:var(--fg);padding:10px 14px;border-radius:6px;font-size:14px;outline:none">${opts}</select>
         <button id="saveConfigBtn">Connect</button>
       </div>
       <div id="healthStatus"></div>
+      <p style="margin-top:12px;font-size:11px;color:var(--muted)">No API key required — models run locally</p>
     </div>`;
 
-    const sel = document.getElementById("modelSelect");
-    const custom = document.getElementById("customModel");
     document.getElementById("saveConfigBtn").addEventListener("click", () => {
-      const m = custom.value.trim() || sel.value;
-      const k = document.getElementById("apiKeyInput").value.trim();
-      vscode.postMessage({ type: "setConfig", apiKey: k, model: m || "phi4-mini" });
+      const m = document.getElementById("modelSelect").value;
+      vscode.postMessage({ type: "setConfig", apiKey: "", model: m });
       const btn = document.getElementById("saveConfigBtn");
       btn.textContent = "Connecting…"; btn.disabled = true;
     });
