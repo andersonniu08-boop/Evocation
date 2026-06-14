@@ -172,6 +172,10 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
             on_token=on_token,
             on_memories=on_memories,
         )
+        # Detect provider-level errors returned as content (not exceptions)
+        if response.startswith("❌") or (isinstance(response, str) and "error:" in response.lower()[:50]):
+            _state_transition(BridgeAgentState.ERROR, response[:100])
+            return {"content": response, "provider_error": True}
         _state_transition(BridgeAgentState.SUCCESS, "Done")
         return {"content": response}
     except Exception as e:
@@ -355,17 +359,17 @@ async def handle_check_health() -> dict:
             await conn.fetchrow("SELECT 1")
         await init_db()
         result["database"] = "ok"
-    except Exception as e:
-        result["database"] = f"error: {e}"
+    except Exception:
+        result["database"] = "unavailable"
 
     # Check embeddings (Ollama)
     try:
         from core.memory import check_ollama
 
         status = await check_ollama()
-        result["embedding"] = "ok" if status is None else f"error: {status}"
-    except Exception as e:
-        result["embedding"] = f"error: {e}"
+        result["embedding"] = "ok" if status is None else "unavailable"
+    except Exception:
+        result["embedding"] = "unavailable"
 
     result["all_ok"] = (
         result["api_key"] == "ok" and result["database"] == "ok" and result["embedding"] == "ok"

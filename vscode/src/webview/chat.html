@@ -74,14 +74,14 @@
     animation: dog-grow 0.6s ease-out;
   }
 
-  @keyframes dog-breathe { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.06); } }
-  @keyframes dog-rotate { 0%{ transform: rotate(-2deg); } 100%{ transform: rotate(2deg); } }
-  @keyframes dog-sniff { 0%{ transform: translateX(-2px); } 100%{ transform: translateX(2px); } }
-  @keyframes dog-bounce { 0%{ transform: translateY(0); } 100%{ transform: translateY(-5px); } }
-  @keyframes dog-pop { 0%,100%{ transform: translateY(0) scale(1); } 50%{ transform: translateY(-8px) scale(1.08); } }
-  @keyframes dog-shake { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-3px); } 75%{ transform: translateX(3px); } }
-  @keyframes dog-pulse { 0%,100%{ opacity:0.4; transform:scale(0.95); } 50%{ opacity:1; transform:scale(1); } }
-  @keyframes dog-grow { 0%{ transform:scale(0.5); opacity:0.2; } 60%{ transform:scale(1.06); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
+  @keyframes dog-breathe { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.12); } }
+  @keyframes dog-rotate { 0%{ transform: rotate(-4deg); } 100%{ transform: rotate(4deg); } }
+  @keyframes dog-sniff { 0%{ transform: translateX(-4px); } 100%{ transform: translateX(4px); } }
+  @keyframes dog-bounce { 0%{ transform: translateY(0); } 100%{ transform: translateY(-8px); } }
+  @keyframes dog-pop { 0%,100%{ transform: translateY(0) scale(1); } 50%{ transform: translateY(-12px) scale(1.12); } }
+  @keyframes dog-shake { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-5px); } 75%{ transform: translateX(5px); } }
+  @keyframes dog-pulse { 0%,100%{ opacity:0.3; transform:scale(0.92); } 50%{ opacity:1; transform:scale(1); } }
+  @keyframes dog-grow { 0%{ transform:scale(0.4); opacity:0.1; } 60%{ transform:scale(1.08); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
   .status-label { font-size: 13px; font-weight: 500; }
   .status-detail { font-size: 11px; color: var(--muted); }
 
@@ -286,7 +286,7 @@
   });
 
   function showSetup(){conv.innerHTML='<div class="welcome"><h2>🐕 MemoryDog</h2><p>A memory-augmented coding agent.</p><div class="setup-form"><input type="password" id="apiKeyInput" placeholder="Enter your API key (e.g. sk-…)" /><input type="text" id="modelInput" placeholder="Model (default: deepseek/deepseek-chat)" /><button id="saveConfigBtn">Save &amp; Start</button></div><div id="healthStatus"></div><div class="setup-hint">Or run <code>dog config</code> in terminal.</div></div>';document.getElementById("saveConfigBtn").addEventListener("click",()=>{const k=document.getElementById("apiKeyInput").value.trim();const m=document.getElementById("modelInput").value.trim();vscode.postMessage({type:"setConfig",apiKey:k,model:m});document.getElementById("saveConfigBtn").textContent="Connecting…";document.getElementById("saveConfigBtn").disabled=true;});}
-  function showHealth(h){const el=document.getElementById("healthStatus");if(!el)return;const ic=s=>s==="ok"?"✅":s==="missing"?"⚠":"❌";el.innerHTML='<div class="health-check">'+['api_key','database','embedding'].map(k=>`<div>${ic(h[k])} ${k==="api_key"?"API Key":k==="database"?"Database":"Embeddings"}: ${h[k]==="ok"?"Connected":h[k]==="missing"?"Not set":h[k]}</div>`).join("")+'</div>';}
+  function showHealth(h){const el=document.getElementById("healthStatus");if(!el)return;const ic=s=>s==="ok"?"✅":s==="missing"?"⚠":"❌";const lb=s=>s==="ok"?"Connected":s==="missing"?"Not set":s==="unavailable"?"Unavailable":s==="rejected"?"Rejected":"Unknown";el.innerHTML='<div class="health-check">'+['api_key','database','embedding'].map(k=>`<div>${ic(h[k])} ${k==="api_key"?"API Key":k==="database"?"Database":"Embeddings"}: ${lb(h[k])}</div>`).join("")+'</div>';}
   function showSetupError(msg){const el=document.getElementById("healthStatus");if(el)el.innerHTML='<div class="health-check" style="color:#f44747;">❌ '+esc(msg)+'</div>';const btn=document.getElementById("saveConfigBtn");if(btn){btn.textContent="Retry";btn.disabled=false;}}
 
   vscode.postMessage({type:"ready"});

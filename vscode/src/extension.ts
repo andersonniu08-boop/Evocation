@@ -366,6 +366,8 @@ async function handleChat(session: Session, text: string) {
       session.workspace,
       (statusMsg: string) => sendToChat(session, { type: "status", text: statusMsg }),
       (token: string) => {
+        // Suppress error tokens — they'll be shown via the error path
+        if (token.startsWith("❌") || token.toLowerCase().includes("error:")) return;
         const cleaned = filterToken(token);
         if (cleaned) sendToChat(session, { type: "token", token: cleaned });
       },
@@ -573,7 +575,7 @@ class SessionTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     const items: vscode.TreeItem[] = [];
 
     // New Session button
-    const newBtn = new vscode.TreeItem("$(add) New Session", vscode.TreeItemCollapsibleState.None);
+    const newBtn = new vscode.TreeItem("New Session", vscode.TreeItemCollapsibleState.None);
     newBtn.command = { command: "memorydog.newSession", title: "New Session" };
     newBtn.iconPath = new vscode.ThemeIcon("add");
     items.push(newBtn);
@@ -582,8 +584,8 @@ class SessionTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     const sessionList = listSessions();
     for (const s of sessionList) {
       const isActive = s.id === activeSessionId;
-      const label = isActive ? `$(circle-filled) ${s.name}` : `$(circle-outline) ${s.name}`;
-      const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.None);
+      const item = new vscode.TreeItem(s.name, vscode.TreeItemCollapsibleState.None);
+      item.iconPath = new vscode.ThemeIcon(isActive ? "circle-filled" : "circle-outline");
       item.tooltip = `Workspace: ${s.workspace}\nCreated: ${new Date(s.createdAt).toLocaleString()}\nClick to open`;
       item.contextValue = "session";
       item.id = s.id;
