@@ -180,7 +180,7 @@ export class MemoryDogBridge {
     onToken: (token: string) => void,
     onState?: (state: BridgeAgentState, detail: string) => void,
     onMemories?: (memories: MemoryRecord[]) => void
-  ): Promise<string> {
+  ): Promise<{ content: string; error?: string; provider_error?: boolean }> {
     this.onStatus = onStatus;
     this.onToken = onToken;
     this.onState = onState || null;
@@ -191,7 +191,7 @@ export class MemoryDogBridge {
         user_input: userInput,
         workspace,
       });
-      return (result.content as string) || "";
+      return result as unknown as { content: string; error?: string; provider_error?: boolean };
     } finally {
       this.onStatus = null;
       this.onToken = null;

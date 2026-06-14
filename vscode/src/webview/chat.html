@@ -276,7 +276,7 @@
         if(t.includes("found")||t.includes("matched")||t.includes("learned"))setStatus("sniffing",t);
       })(m.text.toLowerCase());break;
       case "token":appendToken(m.token);break;
-      case "response":finishStream();addMsg("assistant",m.content);setLoading(false);setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);break;
+      case "response":finishStream();addMsg("assistant",m.content);setLoading(false);if(m.content)setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);break;
       case "error":finishStream();const err=document.createElement("div");err.className="message assistant";err.style.color="#f44747";err.textContent="❌ "+m.text;conv.appendChild(err);setLoading(false);setStatus("error","Error");setTimeout(()=>setStatus("idle","Ready"),1000);break;
       case "ready":setLoading(false);setStatus("idle","Ready");break;
       case "setup":showSetup();break;

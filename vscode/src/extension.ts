@@ -361,12 +361,11 @@ async function handleChat(session: Session, text: string) {
   }
 
   try {
-    const response = await bridge.chat(
+    const result = await bridge.chat(
       text,
       session.workspace,
       (statusMsg: string) => sendToChat(session, { type: "status", text: statusMsg }),
       (token: string) => {
-        // Suppress error tokens — they'll be shown via the error path
         if (token.startsWith("❌") || token.toLowerCase().includes("error:")) return;
         const cleaned = filterToken(token);
         if (cleaned) sendToChat(session, { type: "token", token: cleaned });
@@ -377,9 +376,11 @@ async function handleChat(session: Session, text: string) {
       }
     );
 
-    if (response.startsWith("❌")) {
-      sendToChat(session, { type: "error", text: response.replace(/^❌\s*/, "") });
-    } else {
+    const response = result.content || "";
+    if (result.provider_error || result.error || response.startsWith("❌")) {
+      const msg = result.error || response.replace(/^❌\s*/, "") || "Provider error";
+      sendToChat(session, { type: "error", text: msg });
+    } else if (response) {
       sendToChat(session, { type: "response", content: response });
     }
     refreshStatusBar();
