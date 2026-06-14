@@ -28,7 +28,10 @@
   }
   .dog-sprite {
     width: 30px; height: 57px; flex-shrink: 0;
-    background-repeat: no-repeat; border-radius: 4px;
+    background-size: 120px 114px;      /* 4 cols × 2 rows at display scale */
+    background-position: 0 0;
+    background-repeat: no-repeat;
+    border-radius: 4px; overflow: hidden;
     position: relative;
   }
   .dog-sprite::after {
@@ -150,7 +153,8 @@
       setDogFrame(0, 0);
       startLoop();
     };
-    img.onerror = function() {
+    img.onerror = function(e) {
+      console.warn("MemoryDog: Failed to load sprite sheet from " + cfg.spriteUrl, e);
       // Paw emoji fallback stays via ::after pseudo-element
     };
     img.src = cfg.spriteUrl;
