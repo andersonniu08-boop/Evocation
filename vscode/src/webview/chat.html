@@ -40,6 +40,48 @@
     font-size: 20px; color: var(--muted);
   }
   .dog-sprite.loaded::after { content: none; }
+
+  /* Idle — gentle breathing */
+  .dog-sprite.s-idle {
+    animation: dog-breathe 2.5s ease-in-out infinite;
+  }
+  /* Thinking — slight rotation */
+  .dog-sprite.s-thinking {
+    animation: dog-rotate 1.0s ease-in-out infinite alternate;
+  }
+  /* Sniffing — quick side-to-side */
+  .dog-sprite.s-sniffing {
+    animation: dog-sniff 0.4s ease-in-out infinite alternate;
+  }
+  /* Running — bouncy vertical */
+  .dog-sprite.s-running {
+    animation: dog-bounce 0.25s ease-in-out infinite alternate;
+  }
+  /* Success — pop up */
+  .dog-sprite.s-success {
+    animation: dog-pop 0.3s ease-in-out 2;
+  }
+  /* Error — shake */
+  .dog-sprite.s-error {
+    animation: dog-shake 0.25s ease-in-out 3;
+  }
+  /* Sleeping — gentle fade pulse */
+  .dog-sprite.s-sleeping {
+    animation: dog-pulse 3s ease-in-out infinite;
+  }
+  /* Startup — grow in */
+  .dog-sprite.s-startup {
+    animation: dog-grow 0.6s ease-out;
+  }
+
+  @keyframes dog-breathe { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.06); } }
+  @keyframes dog-rotate { 0%{ transform: rotate(-2deg); } 100%{ transform: rotate(2deg); } }
+  @keyframes dog-sniff { 0%{ transform: translateX(-2px); } 100%{ transform: translateX(2px); } }
+  @keyframes dog-bounce { 0%{ transform: translateY(0); } 100%{ transform: translateY(-5px); } }
+  @keyframes dog-pop { 0%,100%{ transform: translateY(0) scale(1); } 50%{ transform: translateY(-8px) scale(1.08); } }
+  @keyframes dog-shake { 0%,100%{ transform: translateX(0); } 25%{ transform: translateX(-3px); } 75%{ transform: translateX(3px); } }
+  @keyframes dog-pulse { 0%,100%{ opacity:0.4; transform:scale(0.95); } 50%{ opacity:1; transform:scale(1); } }
+  @keyframes dog-grow { 0%{ transform:scale(0.5); opacity:0.2; } 60%{ transform:scale(1.06); opacity:1; } 100%{ transform:scale(1); opacity:1; } }
   .status-label { font-size: 13px; font-weight: 500; }
   .status-detail { font-size: 11px; color: var(--muted); }
 
@@ -144,12 +186,12 @@
       dogEl.style.backgroundImage = `url('${cfg.spriteUrl}')`;
       dogEl.style.backgroundSize = `${dw * cols}px ${dh * rows}px`;
       dogEl.style.backgroundPosition = "0 0";
-      dogEl.classList.add("loaded");
 
       // Store computed values
       spriteCfg.dw = dw; spriteCfg.dh = dh;
       spriteCfg.loaded = true;
 
+      dogEl.className = "dog-sprite s-idle loaded";
       setDogFrame(0, 0);
       startLoop();
     };
@@ -172,6 +214,9 @@
     currentState = state; stateFrame = 0; stateFrameCount = 1;
     const entry = (spriteCfg && spriteCfg.states && spriteCfg.states[state]) || { col: 0, row: 0 };
     setDogFrame(entry.col, entry.row);
+    // Apply CSS animation class
+    dogEl.className = "dog-sprite s-" + state;
+    if (spriteCfg && spriteCfg.loaded) dogEl.classList.add("loaded");
   }
 
   function startLoop() {
