@@ -773,7 +773,7 @@ function readWebviewFile(extensionUri: vscode.Uri, webview: vscode.Webview, file
   const nonce = getNonce();
   content = content.replace(
     "<head>",
-    `<head>\n<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">`
+    `<head>\n<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src http://localhost:11434; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';">`
   );
   content = content.replace(/<script>/g, `<script nonce="${nonce}">`);
   return content;
