@@ -1,5 +1,5 @@
 """LLM provider abstraction."""
-
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Generator
 from dataclasses import dataclass, field
@@ -260,7 +260,12 @@ class OllamaProvider(BaseProvider):
                 token_count=data.get("eval_count", 0),
             )
         except Exception as e:
-            return LLMResponse(content=f"❌ Local model error: {e}", error=str(e))
+            msg = str(e)
+            if "404" in msg or "Not Found" in msg:
+                msg = f"Model '{self.model}' not found. Pull it with: ollama pull {self.model}"
+            elif "ConnectError" in type(e).__name__ or "Connection" in msg:
+                msg = "Ollama not running. Start with: ollama serve"
+            return LLMResponse(content=f"❌ {msg}", error=msg)
 
     def chat_stream(self, messages, tools=None):
         try:
@@ -311,7 +316,9 @@ class OllamaProvider(BaseProvider):
             return LLMResponse(content=full_content, tool_calls=tool_calls, token_count=self.last_tokens)
         except Exception as e:
             error_msg = str(e)[:200]
-            yield f"❌ Local model error: {error_msg}"
+            if "404" in error_msg:
+                error_msg = f"Model '{self.model}' not found. Pull it with: ollama pull {self.model}"
+            yield f"❌ {error_msg}"
             return LLMResponse(content="", error=error_msg)
 
     def check_connection(self) -> str | None:
