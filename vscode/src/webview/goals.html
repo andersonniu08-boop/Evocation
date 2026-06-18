@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Evocation Goals</title>
+<style>
+  :root {
+    --bg: #1e1e1e; --fg: #d4d4d4; --accent: #007acc;
+    --muted: #6a6a6a; --surface: #252526; --border: #3e3e3e;
+    --success: #4ec9b0; --warn: #cca700; --error: #f44747;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-size:12px; padding:8px;
+  }
+  .section { margin-bottom:12px; }
+  .section-title {
+    font-size:11px; font-weight:600; color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.5px;
+    padding:4px 0; border-bottom:1px solid var(--border);
+    margin-bottom:6px;
+  }
+  .goal-item {
+    padding:8px; border-radius:6px; cursor:pointer;
+    margin-bottom:4px; border:1px solid var(--border);
+    transition:background 0.15s;
+  }
+  .goal-item:hover { background:var(--surface); }
+  .goal-item.active { border-color:var(--accent); }
+  .goal-name { font-weight:500; margin-bottom:2px; }
+  .goal-objective { font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .progress-bar {
+    height:4px; background:var(--border); border-radius:2px;
+    margin-top:4px; overflow:hidden;
+  }
+  .progress-fill {
+    height:100%; border-radius:2px; transition:width 0.3s;
+  }
+  .progress-fill.completed { background:var(--success); }
+  .progress-fill.in_progress { background:var(--accent); }
+  .progress-fill.failed { background:var(--error); }
+
+  .status-badge {
+    display:inline-block; padding:1px 6px; border-radius:3px;
+    font-size:10px; font-weight:600; margin-left:4px;
+  }
+  .status-badge.pending { background:rgba(255,255,255,0.1); color:var(--muted); }
+  .status-badge.in_progress { background:rgba(0,122,204,0.15); color:var(--accent); }
+  .status-badge.completed { background:rgba(78,201,176,0.15); color:var(--success); }
+  .status-badge.failed { background:rgba(244,71,71,0.15); color:var(--error); }
+
+  .btn {
+    display:block; width:100%; padding:6px; border-radius:4px;
+    border:1px dashed var(--border); background:none; color:var(--accent);
+    cursor:pointer; font-size:11px; text-align:center; margin-top:4px;
+  }
+  .btn:hover { background:var(--surface); }
+
+  .empty { color:var(--muted); font-size:11px; padding:8px 0; text-align:center; }
+
+  .link { font-size:11px; color:var(--muted); padding:4px 0; cursor:pointer; }
+  .link:hover { color:var(--fg); }
+  .sep { border-top:1px solid var(--border); margin:8px 0; }
+</style>
+</head>
+<body>
+
+<div class="section">
+  <div class="section-title">Active Goals</div>
+  <div id="goalList"></div>
+  <button class="btn" onclick="vscode.postMessage({type:'command',command:'evocation.newSession'})">+ New Session</button>
+</div>
+
+<div class="sep"></div>
+
+<div class="section">
+  <div class="section-title">Quick Actions</div>
+  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showMemoryPanel'})">Context Browser</div>
+  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showInstinctPanel'})">Instincts</div>
+  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.configure'})">Settings</div>
+</div>
+
+<script>
+  const vscode = acquireVsCodeApi();
+
+  function renderGoals(goals) {
+    const list = document.getElementById("goalList");
+    if (!goals || goals.length === 0) {
+      list.innerHTML = '<div class="empty">No goals yet. Start a session to create one.</div>';
+      return;
+    }
+    list.innerHTML = goals.map(g => {
+      const statusClass = g.status || 'pending';
+      const progressClass = g.status === 'completed' ? 'completed' : 
+                           g.status === 'failed' ? 'failed' : 'in_progress';
+      const pc = g.percentage || 0;
+      return `
+        <div class="goal-item ${g.active ? 'active' : ''}" onclick="vscode.postMessage({type:'openGoal',id:'${g.id}'})" title="${g.objective || ''}">
+          <div class="goal-name">
+            ${esc(g.title || 'Untitled')}
+            <span class="status-badge ${statusClass}">${statusClass}</span>
+          </div>
+          <div class="goal-objective">${esc((g.objective || '').slice(0, 80))}</div>
+          <div class="progress-bar">
+            <div class="progress-fill ${progressClass}" style="width:${pc}%"></div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function esc(s) { const d=document.createElement("div"); d.textContent=s||''; return d.innerHTML; }
+
+  window.addEventListener("message", e => {
+    const msg = e.data;
+    if (msg.type === "goals") renderGoals(msg.goals);
+  });
+
+  // Request initial data
+  vscode.postMessage({ type: "ready" });
+</script>
+</body>
+</html>

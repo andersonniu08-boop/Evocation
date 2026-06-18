@@ -1,7 +1,7 @@
 {
   "name": "evocation",
   "displayName": "Evocation",
-  "description": "A memory-augmented coding agent — persistent memory, hybrid retrieval, and instincts",
+  "description": "A memory-augmented coding agent \u2014 persistent memory, hybrid retrieval, and instincts",
   "version": "0.1.0",
   "publisher": "evocation-dev",
   "license": "MIT",
@@ -23,7 +23,9 @@
     "onCommand:evocation.showQuickActions",
     "onView:evocation.sessions",
     "onView:evocation.memoryPanel",
-    "onView:evocation.instinctPanel"
+    "onView:evocation.instinctPanel",
+    "onCommand:evocation.openGoalDashboard",
+    "onView:evocation.goalsPanel"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -69,6 +71,10 @@
       {
         "command": "evocation.showInstinctPanel",
         "title": "Evocation: Show Instincts"
+      },
+      {
+        "command": "evocation.openGoalDashboard",
+        "title": "Evocation: Open Goal Dashboard"
       }
     ],
     "menus": {
@@ -106,6 +112,11 @@
     },
     "views": {
       "evocation": [
+        {
+          "type": "webview",
+          "id": "evocation.goalsPanel",
+          "name": "Goals"
+        },
         {
           "type": "tree",
           "id": "evocation.sessions",

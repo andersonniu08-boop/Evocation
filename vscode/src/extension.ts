@@ -68,6 +68,12 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.window.registerWebviewViewProvider("evocation.instinctPanel", instinctProvider)
   );
 
+  // ── Sidebar: Goals ──────────────────────────────────────
+  const goalsProvider = new GoalsPanelProvider(context.extensionUri, bridge);
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider("evocation.goalsPanel", goalsProvider)
+  );
+
   // ── Commands ───────────────────────────────────────────
   context.subscriptions.push(
     vscode.commands.registerCommand("evocation.newSession", () => openSession(context, generateId(), `Session ${sessions.size + 1}`, getWorkspaceName())),
@@ -79,6 +85,7 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand("evocation.renameSession", (sid?: string) => renameSession(sid || activeSessionId)),
     vscode.commands.registerCommand("evocation.configure", configureApiKey),
     vscode.commands.registerCommand("evocation.showQuickActions", showQuickActions),
+    vscode.commands.registerCommand("evocation.openGoalDashboard", (goalId: string) => openGoalDashboard(context.extensionUri, goalId)),
     // Legacy
     vscode.commands.registerCommand("evocation.start", () => vscode.commands.executeCommand("evocation.newSession")),
     vscode.commands.registerCommand("evocation.startChat", () => vscode.commands.executeCommand("evocation.newSession")),
@@ -707,6 +714,93 @@ class InstinctPanelProvider implements vscode.WebviewViewProvider {
     }
   }
 }
+
+
+// ═══════════════════════════════════════════════════════════
+// Sidebar: Goals Panel
+// ═══════════════════════════════════════════════════════════
+
+class GoalsPanelProvider implements vscode.WebviewViewProvider {
+  constructor(private readonly extensionUri: vscode.Uri, private readonly bridge: EvocationBridge) { }
+
+  resolveWebviewView(webviewView: vscode.WebviewView) {
+    webviewView.webview.options = { enableScripts: true };
+    webviewView.webview.html = readWebviewFile(this.extensionUri, webviewView.webview, "goals.html");
+
+    webviewView.webview.onDidReceiveMessage(async (msg) => {
+      switch (msg.type) {
+        case "ready":
+          await this.loadGoals(webviewView);
+          break;
+        case "openGoal":
+          if (msg.id) vscode.commands.executeCommand("evocation.openGoalDashboard", msg.id);
+          break;
+        case "command":
+          if (msg.command) vscode.commands.executeCommand(msg.command);
+          break;
+      }
+    });
+  }
+
+  private async loadGoals(webviewView: vscode.WebviewView) {
+    if (!bridge.isRunning) {
+      await startBridgeForPanel(webviewView.webview);
+    }
+    try {
+      const result = await bridge.call("get_goals", {});
+      const goals = (result.goals as any[]) || [];
+      // Add progress to each goal
+      for (const g of goals) {
+        try {
+          const p = await bridge.getGoalProgress(g.id);
+          g.percentage = p.percentage;
+          g.total = p.total;
+          g.completed = p.completed;
+        } catch { g.percentage = 0; }
+      }
+      webviewView.webview.postMessage({ type: "goals", goals });
+    } catch (e: any) {
+      webviewView.webview.postMessage({ type: "goals", goals: [] });
+    }
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// Goal Dashboard (editor tab)
+// ═══════════════════════════════════════════════════════════
+
+function openGoalDashboard(extensionUri: vscode.Uri, goalId: string) {
+  const panel = vscode.window.createWebviewPanel(
+    "evocation.goalDashboard",
+    "Evocation: Goal",
+    vscode.ViewColumn.Active,
+    { enableScripts: true, retainContextWhenHidden: true }
+  );
+
+  panel.webview.html = readWebviewFile(extensionUri, panel.webview, "dashboard.html");
+
+  const loadData = async () => {
+    try {
+      const goalResult = await bridge.call("get_goal", { goal_id: goalId });
+      const goal = (goalResult as any).goal;
+      const tasksResult = await bridge.call("get_tasks", { goal_id: goalId });
+      const tasks = (tasksResult as any).tasks || [];
+      const progress = await bridge.getGoalProgress(goalId);
+
+      panel.webview.postMessage({ type: "goal", goal, progress, tasks });
+    } catch (e: any) {
+      panel.webview.postMessage({ type: "goal", goal: null });
+    }
+  };
+
+  panel.webview.onDidReceiveMessage(async (msg) => {
+    if (msg.type === "ready") await loadData();
+  });
+
+  loadData();
+}
+
 
 async function startBridgeForPanel(webview: vscode.Webview) {
   try {
