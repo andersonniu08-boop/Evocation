@@ -2,7 +2,7 @@
 
 **A goal-oriented AI development agent.**
 
-Evocation takes a high-level objective and transforms it into an executable plan: **Goal → Planner → Tasks → Execution**. It combines persistent memory with hybrid retrieval, local LLM support via Ollama, and a task-oriented execution loop — all inside VS Code.
+Evocation takes a high-level objective and transforms it into an executable plan: **Goal → Planner → Tasks → Executor**. It combines persistent memory with hybrid retrieval, local LLM support via Ollama, and an autonomous task execution loop — all inside VS Code.
 
 ---
 
@@ -27,7 +27,7 @@ ollama pull nomic-embed-text
 
 ## How It Works
 
-Evocation stores facts from conversations, embeds them locally via Ollama, retrieves them with hybrid search, and injects them into the LLM context — automatically, across sessions. When you provide a goal, the Planner generates a task list and the agent works through it step by step.
+Evocation stores facts from conversations, embeds them locally via Ollama, retrieves them with hybrid search weighted by structural importance, and injects them into the LLM context — automatically, across sessions. When you provide a goal, the Planner generates a task list and the Executor works through it step by step, running tools autonomously.
 
 ---
 
@@ -38,8 +38,8 @@ Evocation stores facts from conversations, embeds them locally via Ollama, retri
 │ VS Code Extension (TypeScript)                       │
 │                                                       │
 │  ┌──────────┐  ┌──────────┐  ┌───────────────────┐  │
-│  │ Editor   │  │ Context  │  │ Instinct Viewer   │  │
-│  │ Tab      │  │ Browser  │  │                   │  │
+│  │ Editor   │  │ Goals    │  │ Context / Instinct │  │
+│  │ Tab      │  │ Panel    │  │ Panels             │  │
 │  └────┬─────┘  └────┬─────┘  └────────┬──────────┘  │
 │       │             │                │               │
 │       └─────────────┼────────────────┘               │
@@ -49,7 +49,7 @@ Evocation stores facts from conversations, embeds them locally via Ollama, retri
 │  ┌──────────────────┴────────────────────────────┐  │
 │  │ evocation-core (Python package, zero UI)      │  │
 │  │                                                │  │
-│  │  Goal Loop  │  Planning   │  Provider          │  │
+│  │  Executor   │  Planner    │  Provider          │  │
 │  │  Memory CRUD│  Retrieval  │  Tools (x7)       │  │
 │  │  Instincts  │  Embeddings │  DB Layer          │  │
 │  └──────────────────┬─────────────────────────────┘  │
@@ -57,7 +57,7 @@ Evocation stores facts from conversations, embeds them locally via Ollama, retri
 │                     ▼                                 │
 │  ┌──────────────────────────────────────────────────┐│
 │  │ PostgreSQL 16 + pgvector                          ││
-│  │ 6 tables, HNSW vector index, GIN full-text search ││
+│  │ 8 tables, HNSW vector index, GIN full-text search ││
 │  └──────────────────────────────────────────────────┘│
 └──────────────────────────────────────────────────────┘
 ```
@@ -69,10 +69,20 @@ Evocation stores facts from conversations, embeds them locally via Ollama, retri
 ## Goal & Task Pipeline
 
 ```
-Objective → Planner (LLM generates tasks) → Executor (runs tools) → Tracker (updates progress)
+Objective → Planner (LLM generates tasks) → Executor (runs tools autonomously) → Tracker (updates progress)
 ```
 
-### Task Planning
+### Execution Mode
+
+The Executor iterates through pending tasks. For each task, it asks the LLM which tool to use, executes it, records findings, and evaluates completion. Destructive tools (bash, write, edit) yield for user approval before executing.
+
+```
+Task → LLM decides tool → Execute → Record findings → Evaluate
+   ↑                                                    ↓
+   └────────── next task (if complete) ─────────────────┘
+```
+
+### Planning
 
 Provide a goal objective and the Planner module generates a structured task list:
 
@@ -83,6 +93,16 @@ Provide a goal objective and the Planner module generates a structured task list
   {"description": "Add JWT token generation and validation", "order": 3}
 ]
 ```
+
+### Task Tracking
+
+- **Goals**: title, objective, status (pending/in_progress/completed/failed), progress %
+- **Tasks**: description, order, status, findings, notes, timestamps
+- **Progress**: `{ total: 7, completed: 2, failed: 1, percentage: 29 }`
+
+---
+
+## Memory System
 
 ### Hybrid Ranking
 
@@ -99,17 +119,50 @@ Score = 0.25·V + 0.20·B + 0.15·R + 0.15·I + 0.20·W + 0.05·F
 | **W** Workspace | 0.20 | Same workspace → 2.0× boost |
 | **F** Frequency | 0.05 | Logistic sigmoid of access count |
 
+### Structural Priority
+
+Goal-oriented memory types receive relevance multipliers in retrieval:
+
+| Memory Type | Multiplier | Purpose |
+|-------------|-----------|---------|
+| `past_failure` | 1.30× | Avoid repeating mistakes |
+| `plan_architecture` | 1.25× | Architectural decisions |
+| `goal_definition` | 1.25× | Project-level goals |
+| `bug` | 1.15× | Bug history warnings |
+| `design_decision` | 1.10× | Technology choices |
+| `conversation` | 1.00× | General context (baseline) |
+
+### Context Formatting
+
+Memories are grouped under structured markdown headers:
+```
+### Past Failures to Avoid
+- Race condition in the task queue worker
+
+### Relevant Architecture
+- Use hexagonal architecture with ports/adapters
+
+### Design Decisions
+- Chose pgvector for vector search
+```
+
 ---
 
 ## VS Code Extension
 
-The extension provides a session-first sidebar experience:
-
 | Panel | Purpose |
 |-------|---------|
 | **Sessions** | Active conversation sessions, create/open/close |
+| **Goals** | Active goals with progress bars and status badges |
 | **Context** | Browse persistent memories, filter by workspace |
 | **Instincts** | View loaded instincts from `~/.memorydog/instincts.toml` |
+
+### Goal Dashboard
+
+Click a goal to open the dashboard editor tab:
+- **Header**: Objective, status badge, progress bar, SVG state indicator
+- **Left pane**: Task checklist with status icons (✓/✗), expandable findings
+- **Right pane**: Activity feed for tool output and status updates
 
 ### State Indicator
 
@@ -120,12 +173,13 @@ A minimalist SVG state indicator shows agent activity: idle (pulsing), thinking 
 | Command | Action |
 |---------|--------|
 | `Evocation: New Session` | Start a new chat session |
+| `Evocation: Open Goal Dashboard` | View goal detail with task list |
 | `Evocation: Quick Actions` | Show action picker |
 | `Evocation: Configure API Key` | Set your provider API key |
 
 ### Local LLM Default
 
-The extension ships with **phi4-mini** as the default model via Ollama. No API key required. Cloud models (DeepSeek, OpenAI, Claude) are available in the model dropdown — API key field appears only when selected.
+The extension ships with **phi4-mini** as the default model via Ollama. No API key required. Cloud models (DeepSeek, OpenAI, Claude, OpenRouter) are available in the model dropdown — API key field appears only when selected.
 
 ---
 
@@ -172,24 +226,13 @@ Three instincts ship by default: Bug Hunter, AI Evaluation Expert, Recruiter Len
 ### Installation
 
 ```bash
-# Clone and install Python package
 git clone https://github.com/andersonniu08-boop/Evocation.git
 cd Evocation
 pip install -e ".[dev]"
-
-# Start database
 docker compose up -d
-
-# Pull embedding model
 ollama pull nomic-embed-text
 
-# Build VS Code extension
-cd vscode
-npm install
-npm run compile
-npx @vscode/vsce package
-
-# Install extension
+cd vscode && npm install && npm run compile && npx @vscode/vsce package
 code --install-extension evocation-0.1.0.vsix
 ```
 
@@ -211,18 +254,10 @@ evocation status
 | Database | PostgreSQL 16 + pgvector |
 | Embeddings | Ollama + nomic-embed-text (768-dim) |
 | DB Driver | asyncpg |
-| Config | TOML |
-| Testing | pytest (125 tests) |
+| Bridge | JSON-RPC 2.0 over subprocess stdin/stdout |
+| Config | TOML (~/.memorydog/) |
+| Testing | pytest (141 tests) |
 | Linting | Ruff |
-
----
-
-## Testing
-
-```bash
-pytest tests/                          # 125 tests
-ruff check core/ cli/ tests/           # lint
-```
 
 ---
 
@@ -231,30 +266,33 @@ ruff check core/ cli/ tests/           # lint
 ```
 evocation/
 ├── core/                  # Shared Python library (zero UI)
-│   ├── agent_loop.py      # Core execution loop
+│   ├── executor.py        # Autonomous task execution engine
+│   ├── agent_loop.py      # Core chat execution loop
 │   ├── planning.py        # Planner — LLM task generation
-│   ├── tools.py           # 7 tools
+│   ├── tools.py           # 7 tools (read, write, edit, bash, glob, grep)
 │   ├── provider.py        # Ollama + LiteLLM providers
 │   ├── memory.py          # CRUD, extraction, embeddings
-│   ├── retrieval.py       # Hybrid vector + FTS + budget
-│   ├── ranking.py         # 6-term formula
-│   ├── instincts.py       # TOML loader, triggers
+│   ├── retrieval.py       # Hybrid vector + FTS + budget + multipliers
+│   ├── ranking.py         # 6-term scoring formula
+│   ├── instincts.py       # TOML loader, trigger matching
 │   ├── bridge.py          # JSON-RPC server for VS Code
-│   ├── db.py              # asyncpg pool, migrations
+│   ├── db.py              # asyncpg pool, auto-migration
 │   ├── context.py         # Prompt construction
-│   └── config.py          # TOML config
+│   └── config.py          # TOML config with local LLM support
 ├── cli/                   # Textual TUI (secondary interface)
-│   ├── main.py            # evocation CLI
+│   ├── main.py            # evocation CLI entry point
 │   └── ui/                # Chat screen, widgets
 ├── vscode/                # VS Code extension (primary interface)
 │   ├── src/
-│   │   ├── extension.ts   # Activation, providers
+│   │   ├── extension.ts   # Activation, providers, commands
 │   │   ├── bridge.ts      # JSON-RPC client
-│   │   └── webview/       # Chat, context, instinct HTML
+│   │   └── webview/       # chat, goals, dashboard, memory, instinct HTML
 │   └── package.json
 ├── migrations/
-│   └── 001_init.sql       # 6-table schema
-├── tests/                 # 125 tests
+│   └── 001_init.sql       # 8-table schema (memories, goals, tasks, etc.)
+├── tests/                 # 141 tests
+├── DESIGN.md              # UI/UX architecture
+├── PLAN.md                # Implementation roadmap
 ├── docker-compose.yml
 └── pyproject.toml
 ```
