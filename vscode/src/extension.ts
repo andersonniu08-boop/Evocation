@@ -2,7 +2,7 @@ import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
 import { MemoryDogBridge } from "./bridge";
-import { DOG_SPRITE_SHEET, SPRITE, DOG_STATES, FRAME_DURATIONS } from "./assets";
+import { DOG_ICON } from "./assets";
 
 let bridge: MemoryDogBridge;
 let statusBarItem: vscode.StatusBarItem;
@@ -140,21 +140,6 @@ function openSession(context: vscode.ExtensionContext, sessionId: string, name?:
     );
 
     session.panel.webview.html = readWebviewFile(context.extensionUri, session.panel.webview, "chat.html");
-
-    // Send sprite configuration for the mascot
-    const spriteUri = session.panel.webview.asWebviewUri(
-      vscode.Uri.joinPath(context.extensionUri, DOG_SPRITE_SHEET)
-    );
-    session.panel.webview.postMessage({
-      type: "sprite_config",
-      spriteUrl: spriteUri.toString(),
-      frameWidth: SPRITE.frameWidth,
-      frameHeight: SPRITE.frameHeight,
-      columns: SPRITE.columns,
-      rows: SPRITE.rows,
-      states: DOG_STATES,
-      durations: FRAME_DURATIONS,
-    });
 
     session.panel.webview.onDidReceiveMessage(async (msg) => {
       switch (msg.type) {
