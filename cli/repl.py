@@ -15,7 +15,14 @@ async def run_repl(
     model_name: str = "unknown",
 ):
     """Run a simple read-eval-print loop in the terminal."""
-    state = await init_agent(workspace)
+    try:
+        state = await init_agent(workspace)
+    except Exception:
+        ws_name = os.path.basename(os.path.abspath(workspace)) or workspace
+        state = AgentState(workspace=ws_name)
+        print("[warning: database unavailable]")
+
+    provider = provider or MockProvider()
 
     print(f"Evocation ({model_name})\n")
 
