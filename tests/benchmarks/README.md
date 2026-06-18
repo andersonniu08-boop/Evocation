@@ -1,4 +1,4 @@
-# MemoryDog Benchmark Suite
+# Evocation Benchmark Suite
 
 A 4-task A/B comparison suite that measures whether persistent memory adds measurable value to a coding agent.
 

@@ -175,7 +175,7 @@ def _tool_grep(params: dict) -> dict:
 
 
 def _tool_memory_search(params: dict) -> dict:
-    """Search MemoryDog's persistent memory.
+    """Search Evocation's persistent memory.
 
     Full async retrieval is provided by agent_loop's _handle_memory_search
     when called through the agent loop. This is a fallback for direct calls.

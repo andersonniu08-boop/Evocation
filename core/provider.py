@@ -59,7 +59,7 @@ class MockProvider(BaseProvider):
     def chat(self, messages: list[Message], tools: list[dict] | None = None) -> LLMResponse:
         last = messages[-1].content.lower() if messages else ""
         if "hello" in last or "hi" in last:
-            response = LLMResponse(content="Hello! I'm MemoryDog. How can I help you today?")
+            response = LLMResponse(content="Hello! I'm Evocation. How can I help you today?")
         else:
             response = LLMResponse(
                 content="I understand. Let me help you with that.",

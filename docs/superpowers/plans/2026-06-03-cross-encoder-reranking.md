@@ -1,4 +1,4 @@
-# Cross-Encoder Reranking for MemoryDog
+# Cross-Encoder Reranking for Evocation
 
 > **Status:** Planned
 > **Dependencies:** torch, transformers, sentence-transformers

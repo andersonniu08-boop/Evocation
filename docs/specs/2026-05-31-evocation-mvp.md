@@ -1,4 +1,4 @@
-# MemoryDog — Design Specification
+# Evocation — Design Specification
 
 **Date:** 2026-06-09
 **Status:** Core Pipeline Complete — VS Code Extension Focus
@@ -6,13 +6,13 @@
 
 ## Overview
 
-MemoryDog is a memory-augmented coding agent that gets better the longer you work with it. Unlike stateless coding agents, it remembers previous conversations, design decisions, bugs, and project history across sessions.
+Evocation is a memory-augmented coding agent that gets better the longer you work with it. Unlike stateless coding agents, it remembers previous conversations, design decisions, bugs, and project history across sessions.
 
 The mascot is a dog because the agent "fetches" memories.
 
-**MVP scope:** A shared `memorydog-core` Python library (persistent memory, hybrid retrieval, instincts, tool execution, multi-provider LLM) with two frontends:
-- `memorydog-cli`: Textual TUI for development and debugging
-- `memorydog-vscode`: VS Code extension with sidebar panels (chat, memory browser, instinct viewer, animated mascot)
+**MVP scope:** A shared `evocation-core` Python library (persistent memory, hybrid retrieval, instincts, tool execution, multi-provider LLM) with two frontends:
+- `evocation-cli`: Textual TUI for development and debugging
+- `evocation-vscode`: VS Code extension with sidebar panels (chat, memory browser, instinct viewer, animated mascot)
 
 The core value proposition — cross-session persistent memory — is verified and working. Current focus is packaging the VS Code extension as the primary user-facing product.
 
@@ -32,7 +32,7 @@ The core value proposition — cross-session persistent memory — is verified a
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ memorydog-core (Python package, zero UI)        │
+│ evocation-core (Python package, zero UI)        │
 │ ┌─────────────────────────────────────────────┐ │
 │ │ Agent Loop  │ Memory CRUD │ Retrieval       │ │
 │ │ Tools (x7)  │ Ranking     │ Instinct Engine │ │
@@ -42,7 +42,7 @@ The core value proposition — cross-session persistent memory — is verified a
            │ imports          │ subprocess bridge
            ▼                  ▼
 ┌──────────────────────┐  ┌────────────────────────────┐
-│ memorydog-cli        │  │ memorydog-vscode            │
+│ evocation-cli        │  │ evocation-vscode            │
 │ Textual TUI frontend │  │ TypeScript extension        │
 │ • Multi-pane layout  │  │ • Bridge: Python subprocess │
 │ • Conversation view  │  │ • Chat webview with stream │
@@ -373,7 +373,7 @@ At the start of each agent turn:
 
 ### Architecture: Subprocess Bridge
 
-MemoryDog's VS Code extension communicates with the Python core via a `MemoryDogBridge` — a subprocess manager that spawns `memorydog-core` as a child process and communicates over stdin/stdout JSON-RPC.
+Evocation's VS Code extension communicates with the Python core via a `EvocationBridge` — a subprocess manager that spawns `evocation-core` as a child process and communicates over stdin/stdout JSON-RPC.
 
 ```
 VS Code Extension (TypeScript)
@@ -383,10 +383,10 @@ VS Code Extension (TypeScript)
   ├── InstinctPanelProvider  — view loaded instincts
   ├── DogViewProvider        — animated mascot (CSS states)
   ├── StatusBar              — memory count, instinct count, workspace
-  └── MemoryDogBridge        — stdin/stdout JSON-RPC to Python
+  └── EvocationBridge        — stdin/stdout JSON-RPC to Python
         │
         ▼
-Python subprocess (memorydog-core)
+Python subprocess (evocation-core)
   │
   ├── agent_loop.run_turn()  — full agent pipeline
   ├── memory.*               — CRUD, extraction, embedding
@@ -432,13 +432,13 @@ The extension is packaged with `vsce package`:
 ```bash
 cd vscode
 npx @vscode/vsce package
-# → memorydog-0.1.0.vsix (12KB, 10 files)
+# → evocation-0.1.0.vsix (12KB, 10 files)
 ```
 
 ### Configuration
 
 Users set their API key via:
-1. The extension's config command (stored in VS Code settings under `memorydog.*`)
+1. The extension's config command (stored in VS Code settings under `evocation.*`)
 2. The chat panel's setup screen
 3. Directly via VS Code settings UI
 
@@ -519,7 +519,7 @@ The persona appears in **chrome only** — never in agent responses to the user:
 
 **Full VS Code extension with 4 sidebar panels, bridge, streaming.**
 
-- MemoryDogBridge: Python subprocess manager with stdin/stdout JSON-RPC
+- EvocationBridge: Python subprocess manager with stdin/stdout JSON-RPC
 - Chat panel: webview with message history, streaming token display, status updates
 - Memory browser panel: searchable list with workspace filter
 - Instinct viewer panel: status badges, descriptions
@@ -574,8 +574,8 @@ Dev: pytest, pytest-asyncio, ruff
 ## Folder Structure
 
 ```
-memorydog/              # monorepo
-├── core/               # memorydog-core — shared Python package, zero UI
+evocation/              # monorepo
+├── core/               # evocation-core — shared Python package, zero UI
 │   ├── agent_loop.py   # Execution loop, streaming, callbacks
 │   ├── tools.py        # 7 tools + memory_search
 │   ├── provider.py     # LiteLLM provider, streaming, error handling
@@ -586,13 +586,13 @@ memorydog/              # monorepo
 │   ├── db.py           # asyncpg pool, migrations
 │   ├── config.py       # TOML config, env var fallback
 │   └── context.py      # Prompt construction
-├── cli/                # memorydog-cli — Textual TUI frontend
+├── cli/                # evocation-cli — Textual TUI frontend
 │   ├── main.py         # Entry point (dog chat/config/status)
 │   ├── app.py          # Textual App + CSS
 │   └── ui/
 │       ├── chat.py     # Chat screen, status messages, streaming
 │       └── widgets.py  # StatusBar, PlanPanel, DiffPreview, ToolOutput
-├── vscode/             # memorydog-vscode — TypeScript extension
+├── vscode/             # evocation-vscode — TypeScript extension
 │   ├── package.json    # 9 activation events, 4 webview panels
 │   ├── tsconfig.json
 │   ├── src/
@@ -627,6 +627,6 @@ If time permits, a 4-task A/B comparison (memory ON vs OFF) measuring task succe
 
 ## Resume Description
 
-**MemoryDog** — *Python, PostgreSQL/pgvector, LiteLLM, TypeScript, VS Code API*
+**Evocation** — *Python, PostgreSQL/pgvector, LiteLLM, TypeScript, VS Code API*
 
-Designed and built a memory-augmented coding agent with persistent long-term memory across sessions and projects. Implemented a hybrid retrieval pipeline combining vector similarity (pgvector HNSW), BM25 keyword search, recency weighting, and importance scoring with configurable ranking formulas. Built an automatic memory extraction system that identifies and stores design decisions, bugs, and user preferences from conversations. Designed an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior based on task context. Developed both a multi-pane Textual-based CLI TUI and a VS Code extension with sidebar webviews (chat with streaming, memory browser, instinct viewer, animated mascot) — both frontends share a single `memorydog-core` Python library with zero logic duplication via a subprocess JSON-RPC bridge.
+Designed and built a memory-augmented coding agent with persistent long-term memory across sessions and projects. Implemented a hybrid retrieval pipeline combining vector similarity (pgvector HNSW), BM25 keyword search, recency weighting, and importance scoring with configurable ranking formulas. Built an automatic memory extraction system that identifies and stores design decisions, bugs, and user preferences from conversations. Designed an instinct system that activates user-defined procedural modules to bias retrieval and guide agent behavior based on task context. Developed both a multi-pane Textual-based CLI TUI and a VS Code extension with sidebar webviews (chat with streaming, memory browser, instinct viewer, animated mascot) — both frontends share a single `evocation-core` Python library with zero logic duplication via a subprocess JSON-RPC bridge.

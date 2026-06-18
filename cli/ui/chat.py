@@ -60,7 +60,7 @@ class ChatScreen(Screen):
             self.state = None
 
         conv = self.query_one("#conversation", RichLog)
-        conv.write("[bold blue]🐕 MemoryDog ready.[/]")
+        conv.write("[bold blue]🐕 Evocation ready.[/]")
 
         if self.state and self.state.workspace:
             try:
@@ -100,7 +100,7 @@ class ChatScreen(Screen):
             ws = os.path.basename(os.path.abspath(self.workspace)) or self.workspace
             self.state = AgentState(workspace=ws)
             response = self.provider.chat([])
-            conv.write(f"[bold green]MemoryDog:[/] {response.content}")
+            conv.write(f"[bold green]Evocation:[/] {response.content}")
             event.input.disabled = False
             event.input.focus()
             return
@@ -113,7 +113,7 @@ class ChatScreen(Screen):
 
         # Streaming response widget at bottom of left pane
         stream_widget = self.query_one("#streaming-response", Static)
-        stream_widget.update("[bold green]MemoryDog:[/]")
+        stream_widget.update("[bold green]Evocation:[/]")
 
         response_parts = []
 
@@ -124,7 +124,7 @@ class ChatScreen(Screen):
         def on_token(token: str):
             response_parts.append(token)
             full = "".join(response_parts)
-            stream_widget.update(f"[bold green]MemoryDog:[/] {full}")
+            stream_widget.update(f"[bold green]Evocation:[/] {full}")
 
         response_text = await run_turn(
             self.provider,
@@ -136,7 +136,7 @@ class ChatScreen(Screen):
 
         # Clear streaming widget and show final response in conversation
         stream_widget.update("")
-        conv.write(f"[bold green]MemoryDog:[/] {response_text}")
+        conv.write(f"[bold green]Evocation:[/] {response_text}")
 
         self.total_tokens += self.provider.last_tokens
         self.status.tokens = self.total_tokens

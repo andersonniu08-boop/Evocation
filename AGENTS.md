@@ -1,9 +1,9 @@
-# AGENTS.md — MemoryDog Development Guidelines
+# AGENTS.md — Evocation Development Guidelines
 
 ## Architecture
 
 ```
-core/                MemoryDog Core — shared library, zero UI
+core/                Evocation Core — shared library, zero UI
   agent_loop.py      Core execution loop + memory extraction + streaming
   tools.py           7 tools (read, write, edit, bash, glob, grep, memory_search)
   provider.py        BaseProvider, MockProvider, LiteLLMProvider
@@ -27,7 +27,7 @@ vscode/              VS Code extension (TypeScript)
   assets/            Packaged assets (icons, sprites)
 
 assets/              Project-level assets (canonical sources)
-  dog/               🐕 MemoryDog mascot sprite sheet + docs
+  dog/               🐕 Evocation mascot sprite sheet + docs
   screenshots/       Application screenshots
   gifs/              Animated demo GIFs
   icons/             App icons
@@ -45,7 +45,7 @@ assets/              Project-level assets (canonical sources)
 - 🐕 Dog persona in status chrome only — never in agent responses to user
 - Status messages through `dog_status(message)` / `on_status` callback
 - Memory extraction uses `_parse_memory_json()` for provider-agnostic parsing
-- Mascot sprite sheet at `assets/dog/memorydog_spritesheet.png`; VS Code loads from `vscode/assets/dog/`
+- Mascot sprite sheet at `assets/dog/evocation_spritesheet.png`; VS Code loads from `vscode/assets/dog/`
 - Sprite constants centralized in `vscode/src/assets.ts` — frame grid, state map, durations
 
 ## MVP Scope — Implemented
@@ -80,7 +80,7 @@ Do not add (yet):
 
 ### Cross-Encoder Reranking (post-MVP)
 
-Add a second-stage reranker after the current hybrid retrieval to improve ranking precision. See `docs/specs/2026-05-31-memorydog-mvp.md` for the full design.
+Add a second-stage reranker after the current hybrid retrieval to improve ranking precision. See `docs/specs/2026-05-31-evocation-mvp.md` for the full design.
 
 **Rationale:** Bi-encoder embeddings (nomic-embed-text) lose nuance by compressing documents into single vectors. A cross-encoder processes query+candidate jointly and produces strictly more accurate relevance scores.
 
@@ -110,7 +110,7 @@ class CrossEncoderReranker:
 
 ## Design Spec
 
-Read `docs/specs/2026-05-31-memorydog-mvp.md` for the full design rationale.
+Read `docs/specs/2026-05-31-evocation-mvp.md` for the full design rationale.
 
 ## Testing
 

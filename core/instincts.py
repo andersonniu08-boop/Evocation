@@ -4,10 +4,10 @@ import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-INSTINCTS_PATH = Path.home() / ".memorydog" / "instincts.toml"
+INSTINCTS_PATH = Path.home() / ".evocation" / "instincts.toml"
 
 DEFAULT_INSTINCTS = """\
-# MemoryDog Instincts
+# Evocation Instincts
 # Define reusable behavioral modules that activate on keyword triggers.
 # Active instincts bias memory retrieval and augment the system prompt.
 

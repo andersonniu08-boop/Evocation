@@ -1,4 +1,4 @@
-"""Tests for MemoryDog core and CLI."""
+"""Tests for Evocation core and CLI."""
 
 import sys
 
@@ -81,7 +81,7 @@ async def test_run_turn_returns_response():
     state = AgentState()
     response = await run_turn(provider, state, "Hello")
     assert response
-    assert "Hello" in response or "I'm MemoryDog" in response
+    assert "Hello" in response or "I'm Evocation" in response
     assert len(state.history) >= 1
 
 
@@ -125,12 +125,12 @@ def test_config_defaults():
 def test_config_load_creates_file(tmp_path, monkeypatch):
     import core.config as config_module
 
-    monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".memorydog")
-    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".memorydog" / "config.toml")
+    monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".evocation")
+    monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".evocation" / "config.toml")
 
     cfg = config_module.create_default_config()
     assert "phi4-mini" in cfg.provider.model
-    assert (tmp_path / ".memorydog" / "config.toml").exists()
+    assert (tmp_path / ".evocation" / "config.toml").exists()
 
 
 def test_make_mock_provider():

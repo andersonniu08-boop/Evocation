@@ -1,4 +1,4 @@
-"""Custom widgets for MemoryDog TUI."""
+"""Custom widgets for Evocation TUI."""
 
 from textual.reactive import reactive
 from textual.widgets import RichLog, Static

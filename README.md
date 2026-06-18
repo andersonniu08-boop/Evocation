@@ -1,8 +1,8 @@
-# 🐕 MemoryDog
+# 🐕 Evocation
 
 **A memory-augmented coding agent that gets better the longer you work with it.**
 
-Unlike stateless coding agents, MemoryDog remembers previous conversations, design decisions, bugs, and project history across sessions. It combines persistent memory with hybrid retrieval, workspace-aware ranking, and an instinct engine for reusable behavioral modules — all inside VS Code.
+Unlike stateless coding agents, Evocation remembers previous conversations, design decisions, bugs, and project history across sessions. It combines persistent memory with hybrid retrieval, workspace-aware ranking, and an instinct engine for reusable behavioral modules — all inside VS Code.
 
 ---
 
@@ -10,7 +10,7 @@ Unlike stateless coding agents, MemoryDog remembers previous conversations, desi
 
 ```bash
 # 1. Install the extension
-code --install-extension memorydog-0.1.0.vsix
+code --install-extension evocation-0.1.0.vsix
 
 # 2. Start PostgreSQL + pgvector
 docker compose up -d
@@ -33,7 +33,7 @@ Session 2:  "Why did we choose Textual?"
             → "According to my memory, we chose Textual because it supports multi-pane layouts."
 ```
 
-MemoryDog stores facts from conversations, embeds them locally via Ollama, retrieves them with hybrid search, and injects them into the LLM context — automatically, across sessions.
+Evocation stores facts from conversations, embeds them locally via Ollama, retrieves them with hybrid search, and injects them into the LLM context — automatically, across sessions.
 
 ---
 
@@ -53,7 +53,7 @@ MemoryDog stores facts from conversations, embeds them locally via Ollama, retri
 │            JSON-RPC over stdin/stdout                │
 │                     │                                │
 │  ┌──────────────────┴────────────────────────────┐  │
-│  │ memorydog-core (Python package, zero UI)      │  │
+│  │ evocation-core (Python package, zero UI)      │  │
 │  │                                                │  │
 │  │  Agent Loop  │  Tools (x7)  │  Provider        │  │
 │  │  Memory CRUD │  Retrieval   │  Ranking         │  │
@@ -114,7 +114,7 @@ Score = 0.25·V + 0.20·B + 0.15·R + 0.15·I + 0.20·W + 0.05·F
 
 ## VS Code Extension
 
-The extension provides four panels in the MemoryDog sidebar:
+The extension provides four panels in the Evocation sidebar:
 
 | Panel | Purpose |
 |-------|---------|
@@ -127,16 +127,16 @@ The extension provides four panels in the MemoryDog sidebar:
 
 | Command | Action |
 |---------|--------|
-| `MemoryDog: Focus Chat` | Open the chat panel |
-| `MemoryDog: Quick Actions` | Show action picker |
-| `MemoryDog: Configure API Key` | Set your provider API key |
+| `Evocation: Focus Chat` | Open the chat panel |
+| `Evocation: Quick Actions` | Show action picker |
+| `Evocation: Configure API Key` | Set your provider API key |
 
 ### Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `memorydog.apiKey` | (empty) | LLM provider API key |
-| `memorydog.model` | `deepseek/deepseek-chat` | LiteLLM model string |
+| `evocation.apiKey` | (empty) | LLM provider API key |
+| `evocation.model` | `deepseek/deepseek-chat` | LiteLLM model string |
 
 ---
 
@@ -196,8 +196,8 @@ Three instincts ship by default: Bug Hunter, AI Evaluation Expert, Recruiter Len
 
 ```bash
 # Clone and install Python package
-git clone https://github.com/andersonniu08-boop/MemoryDog.git
-cd MemoryDog
+git clone https://github.com/andersonniu08-boop/Evocation.git
+cd Evocation
 pip install -e ".[dev]"
 
 # Start database
@@ -213,7 +213,7 @@ npm run compile
 npx @vscode/vsce package
 
 # Install extension
-code --install-extension memorydog-0.1.0.vsix
+code --install-extension evocation-0.1.0.vsix
 
 # Install CLI to PATH (optional)
 dog install
@@ -256,7 +256,7 @@ python -m tests.benchmarks.harness --task api_evolution  # benchmarks
 ## Project Structure
 
 ```
-memorydog/
+evocation/
 ├── core/                  # Shared Python library (zero UI)
 │   ├── agent_loop.py      # Core execution loop
 │   ├── tools.py           # 7 tools

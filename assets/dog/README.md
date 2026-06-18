@@ -1,4 +1,4 @@
-# MemoryDog Mascot — Sprite Sheet
+# Evocation Mascot — Sprite Sheet
 
 ## Source
 
@@ -8,7 +8,7 @@ Artist-provided sprite sheet, added to the repository 2026-06-12.
 
 | Property | Value |
 |----------|-------|
-| File | `memorydog_spritesheet.png` |
+| File | `evocation_spritesheet.png` |
 | Format | PNG, RGBA |
 | Dimensions | 2124 × 2016 px |
 | Grid | 4 columns × 2 rows (8 frames) |
@@ -44,7 +44,7 @@ Frames are arranged left-to-right, top-to-bottom in a 4×2 grid:
 
 ## Intended Usage
 
-The sprite sheet is the canonical art asset for the MemoryDog mascot, used across:
+The sprite sheet is the canonical art asset for the Evocation mascot, used across:
 
 - **VS Code Extension** — rendered in the Mascot panel (`dog.html`) via CSS `background-position` sprite animation or `<canvas>`
 - **CLI / TUI** — optional terminal rendering via kitty/wezterm image protocol or sixel
@@ -60,7 +60,7 @@ The sprite sheet must be accessible within the extension's webview context. The 
 .dog-sprite {
   width: 531px;
   height: 1008px;
-  background-image: url('memorydog_spritesheet.png');
+  background-image: url('evocation_spritesheet.png');
   background-size: 2124px 2016px;  /* full sheet */
 }
 .dog-idle     { background-position: 0 0; }

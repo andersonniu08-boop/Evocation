@@ -1,11 +1,11 @@
-"""MemoryDog CLI entry point."""
+"""Evocation CLI entry point."""
 
 import argparse
 
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="dog", description="MemoryDog \u2014 memory-augmented coding agent"
+        prog="dog", description="Evocation \u2014 memory-augmented coding agent"
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -18,7 +18,7 @@ def main():
 
     sub.add_parser("config", help="Interactive configuration wizard")
 
-    sub.add_parser("status", help="Show MemoryDog status")
+    sub.add_parser("status", help="Show Evocation status")
 
     instinct_parser = sub.add_parser("instinct", help="Manage instincts")
     instinct_sub = instinct_parser.add_subparsers(dest="instinct_cmd")
@@ -52,9 +52,9 @@ def main():
                 provider = _make_mock_provider()
                 model_name = "mock"
 
-        from cli.app import MemoryDogApp
+        from cli.app import EvocationApp
 
-        app = MemoryDogApp(workspace=args.workspace, provider=provider, model_name=model_name)
+        app = EvocationApp(workspace=args.workspace, provider=provider, model_name=model_name)
         app.run()
 
     elif args.command == "config":
@@ -112,7 +112,7 @@ def _run_config_wizard():
     except Exception:
         config = Config()
 
-    print("\n\U0001f415 MemoryDog Configuration\n")
+    print("\n\U0001f415 Evocation Configuration\n")
     print("Use LiteLLM model format: provider/model")
     print("Examples: anthropic/claude-sonnet-4-20250514, openai/gpt-4o, ollama/llama3\n")
     print("Press Enter to keep current values.\n")
@@ -132,7 +132,7 @@ def _run_config_wizard():
         config.provider.api_base = api_base
 
     save_config(config)
-    print("\n\U0001f415 Config saved to ~/.evocation/config.toml")
+    print("\n\U0001f415 Config saved to ~/.memorydog/config.toml")
     print("Embeddings: Ollama + nomic-embed-text (local)")
     print("Run 'dog chat' to start.")
     print("Run 'dog instinct list' to see your instincts.")
@@ -195,12 +195,12 @@ def _run_status():
 
     instincts = load_instincts()
 
-    print("\n\U0001f415 MemoryDog Status\n")
+    print("\n\U0001f415 Evocation Status\n")
     print(f"  Provider: {config.provider.model}")
     print(f"  Embedding: {config.embedding.model}")
     print(f"  Instincts: {len(instincts)} loaded")
-    print("  Config: ~/.evocation/config.toml")
-    print("  Instincts file: ~/.evocation/instincts.toml")
+    print("  Config: ~/.memorydog/config.toml")
+    print("  Instincts file: ~/.memorydog/instincts.toml")
 
     if not config.provider.api_key:
         print("\n  \u26a0 No API key set. Run 'dog config' to configure.")

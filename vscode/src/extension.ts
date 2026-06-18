@@ -1,10 +1,10 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import { MemoryDogBridge } from "./bridge";
+import { EvocationBridge } from "./bridge";
 import { DOG_ICON } from "./assets";
 
-let bridge: MemoryDogBridge;
+let bridge: EvocationBridge;
 let statusBarItem: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
 
@@ -41,13 +41,13 @@ function getWorkspaceName(): string {
 export function activate(context: vscode.ExtensionContext) {
   extensionContext = context;
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBarItem.text = "$(paw) MemoryDog";
+  statusBarItem.text = "$(paw) Evocation";
   statusBarItem.tooltip = "Evocation";
   statusBarItem.command = "evocation.newSession";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
-  bridge = new MemoryDogBridge();
+  bridge = new EvocationBridge();
   startBridgeAsync();
 
   // ── Sidebar: Sessions ──────────────────────────────────
@@ -646,7 +646,7 @@ async function configureApiKey() {
 // ═══════════════════════════════════════════════════════════
 
 class MemoryPanelProvider implements vscode.WebviewViewProvider {
-  constructor(private readonly extensionUri: vscode.Uri, private readonly bridge: MemoryDogBridge) { }
+  constructor(private readonly extensionUri: vscode.Uri, private readonly bridge: EvocationBridge) { }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     webviewView.webview.options = { enableScripts: true };
@@ -681,7 +681,7 @@ class MemoryPanelProvider implements vscode.WebviewViewProvider {
 // ═══════════════════════════════════════════════════════════
 
 class InstinctPanelProvider implements vscode.WebviewViewProvider {
-  constructor(private readonly extensionUri: vscode.Uri, private readonly bridge: MemoryDogBridge) { }
+  constructor(private readonly extensionUri: vscode.Uri, private readonly bridge: EvocationBridge) { }
 
   resolveWebviewView(webviewView: vscode.WebviewView) {
     webviewView.webview.options = { enableScripts: true };
@@ -730,15 +730,15 @@ async function startBridgeAsync() {
     if (apiKey) await bridge.setConfig(apiKey);
     refreshStatusBar();
   } catch (e) {
-    statusBarItem.text = "$(error) MemoryDog";
+    statusBarItem.text = "$(error) Evocation";
     statusBarItem.tooltip = `Bridge failed to start: ${e}. Click to retry.`;
-    console.error("Failed to start MemoryDog bridge:", e);
+    console.error("Failed to start Evocation bridge:", e);
   }
 }
 
 async function refreshStatusBar() {
   if (!bridge.isRunning) {
-    statusBarItem.text = "$(paw) MemoryDog";
+    statusBarItem.text = "$(paw) Evocation";
     return;
   }
   try {
@@ -749,9 +749,9 @@ async function refreshStatusBar() {
     const sessionCount = sessions.size;
     if (sessionCount > 0) parts.push(`${sessionCount} session${sessionCount > 1 ? 's' : ''}`);
     statusBarItem.text = parts.join(" ");
-    statusBarItem.tooltip = `MemoryDog\nWorkspace: ${status.workspace}\nModel: ${status.model}`;
+    statusBarItem.tooltip = `Evocation\nWorkspace: ${status.workspace}\nModel: ${status.model}`;
   } catch {
-    statusBarItem.text = "$(paw) MemoryDog";
+    statusBarItem.text = "$(paw) Evocation";
   }
 }
 

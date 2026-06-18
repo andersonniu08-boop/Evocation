@@ -1,1 +1,1 @@
-"""MemoryDog Core — shared agent logic, zero UI dependencies."""
+"""Evocation Core — shared agent logic, zero UI dependencies."""

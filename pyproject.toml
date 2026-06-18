@@ -1,5 +1,5 @@
 [project]
-name = "memorydog"
+name = "evocation"
 version = "0.1.0"
 description = "A memory-augmented coding agent that gets better the longer you work with it"
 requires-python = ">=3.11"

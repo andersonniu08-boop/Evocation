@@ -179,7 +179,7 @@ async def _cli_main(args: argparse.Namespace) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="MemoryDog Benchmark Harness — compare memory ON vs OFF",
+        description="Evocation Benchmark Harness — compare memory ON vs OFF",
     )
     parser.add_argument(
         "--task",

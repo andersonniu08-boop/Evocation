@@ -1,1 +1,1 @@
-"""MemoryDog CLI — Textual TUI frontend."""
+"""Evocation CLI — Textual TUI frontend."""

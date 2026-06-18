@@ -6,8 +6,8 @@ from cli.ui.chat import ChatScreen
 from core.provider import BaseProvider
 
 
-class MemoryDogApp(App):
-    """MemoryDog Textual application."""
+class EvocationApp(App):
+    """Evocation Textual application."""
 
     CSS = """
     #main-layout {

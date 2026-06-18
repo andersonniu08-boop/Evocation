@@ -29,8 +29,8 @@ class TestLocalConfig:
     def test_config_loads_local(self, tmp_path, monkeypatch):
         import core.config as config_module
 
-        monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".memorydog")
-        monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".memorydog" / "config.toml")
+        monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".evocation")
+        monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".evocation" / "config.toml")
 
         config = config_module.create_default_config()
         assert config.local.primary_model == "phi4-mini"
@@ -40,8 +40,8 @@ class TestLocalConfig:
     def test_save_config_includes_local(self, tmp_path, monkeypatch):
         import core.config as config_module
 
-        monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".memorydog")
-        monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".memorydog" / "config.toml")
+        monkeypatch.setattr(config_module, "CONFIG_DIR", tmp_path / ".evocation")
+        monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / ".evocation" / "config.toml")
 
         cfg = Config()
         cfg.local.primary_model = "custom-model"

@@ -1,4 +1,4 @@
-"""Configuration management for MemoryDog."""
+"""Configuration management for Evocation."""
 
 import os
 import tomllib
@@ -9,7 +9,7 @@ CONFIG_DIR = Path.home() / ".memorydog"
 CONFIG_PATH = CONFIG_DIR / "config.toml"
 
 DEFAULT_CONFIG = """\
-# MemoryDog configuration
+# Evocation configuration
 
 [provider]
 provider_type = "ollama"
@@ -27,7 +27,7 @@ context_window = 8192
 model = "nomic-embed-text"
 
 [database]
-url = "postgresql+asyncpg://memorydog:memorydog@localhost:5432/memorydog"
+url = "postgresql+asyncpg://evocation:evocation@localhost:5432/evocation"
 """
 
 
@@ -54,7 +54,7 @@ class EmbeddingConfig:
 
 @dataclass
 class DatabaseConfig:
-    url: str = "postgresql+asyncpg://memorydog:memorydog@localhost:5432/memorydog"
+    url: str = "postgresql+asyncpg://evocation:evocation@localhost:5432/evocation"
 
 
 @dataclass
@@ -99,7 +99,7 @@ def save_config(config: Config) -> None:
         else '# api_base = "https://custom-api.example.com"  # optional'
     )
     content = f"""\
-# MemoryDog configuration
+# Evocation configuration
 
 [provider]
 provider_type = "{config.provider.provider_type}"

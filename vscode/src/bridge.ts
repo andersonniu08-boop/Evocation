@@ -82,7 +82,7 @@ export type BridgeAgentState =
   | "Success"
   | "Error";
 
-export class MemoryDogBridge {
+export class EvocationBridge {
   private process: cp.ChildProcess | null = null;
   private nextId = 1;
   private pending = new Map<number, (resp: JsonRpcResponse) => void>();
