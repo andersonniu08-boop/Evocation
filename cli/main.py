@@ -49,7 +49,9 @@ def main():
         _run_install()
 
     else:
-        # Default: start the TUI
+        # Default: start the raw REPL
+        import asyncio
+
         from core.config import load_config
 
         config = load_config()
@@ -57,19 +59,12 @@ def main():
         if args.mock:
             provider = _make_mock_provider()
             model_name = "mock"
-            print("Starting in offline mode (--mock). No API key required.")
         else:
             provider, model_name = _make_provider_from_config(config, args.model)
-            result = provider.check_connection()
-            if result is not None:
-                print(f"  ⚠ API key rejected. Starting in offline mode instead.\n  {result}\n")
-                provider = _make_mock_provider()
-                model_name = "mock"
 
-        from cli.app import EvocationApp
+        from cli.repl import run_repl
 
-        app = EvocationApp(workspace=args.workspace, provider=provider, model_name=model_name)
-        app.run()
+        asyncio.run(run_repl(workspace=args.workspace, provider=provider, model_name=model_name))
 
 
 def _make_mock_provider():
