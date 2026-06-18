@@ -144,12 +144,11 @@
   function esc(s) { const d=document.createElement("div"); d.textContent=s; return d.innerHTML; }
   function md(t){t=t.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>"<pre><code>"+esc(c.trim())+"</code></pre>");t=t.replace(/`([^`]+)`/g,"<code>$1</code>");t=t.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");t=t.replace(/\*([^*]+)\*/g,"<em>$1</em>");return t;}
   function scroll(){conv.scrollTop=conv.scrollHeight;}
-  function setLoading(v){userInput.disabled=v;sendBtn.disabled=v;if(!v)userInput.focus();}
   function addMsg(role,content){if(!content)return;const el=document.createElement("div");el.className="message "+role;if(role==="user")el.textContent=content;else el.innerHTML=md(esc(content));conv.appendChild(el);scroll();}
   function startStream(){if(streamingEl)conv.removeChild(streamingEl);streamingEl=document.createElement("div");streamingEl.className="message assistant streaming";conv.appendChild(streamingEl);streamingText="";}
   function appendToken(t){if(!streamingEl)startStream();streamingText+=t;streamingEl.innerHTML=md(esc(streamingText));scroll();}
   function finishStream(){if(streamingEl){streamingEl.classList.remove("streaming");streamingEl=null;streamingText="";}}
-  function sendMsg(){const t=userInput.value.trim();if(!t)return;addMsg("user",t);userInput.value="";userInput.style.height="auto";setLoading(true);setStatus("thinking","Thinking…");vscode.postMessage({type:"chat",text:t});}
+  function sendMsg(){const t=userInput.value.trim();if(!t)return;addMsg("user",t);userInput.value="";userInput.style.height="auto";setStatus("thinking","Thinking…");vscode.postMessage({type:"chat",text:t});}
   sendBtn.addEventListener("click",sendMsg);
   userInput.addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}});
   userInput.addEventListener("input",()=>{userInput.style.height="auto";userInput.style.height=Math.min(userInput.scrollHeight,200)+"px";});
@@ -171,9 +170,9 @@
         if(t.includes("found")||t.includes("matched")||t.includes("learned"))setStatus("sniffing",t);
       })(m.text.toLowerCase());break;
       case "token":appendToken(m.token);break;
-      case "response":finishStream();addMsg("assistant",m.content);setLoading(false);if(m.content)setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);break;
-      case "error":finishStream();const err=document.createElement("div");err.className="message assistant";err.style.color="#f44747";err.textContent="❌ "+m.text;conv.appendChild(err);setLoading(false);setStatus("error","Error");setTimeout(()=>setStatus("idle","Ready"),1000);break;
-      case "ready":setLoading(false);setStatus("idle","Ready");break;
+      case "response":finishStream();addMsg("assistant",m.content);if(m.content)setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);break;
+      case "error":finishStream();const err=document.createElement("div");err.className="message assistant";err.style.color="#f44747";err.textContent="❌ "+m.text;conv.appendChild(err);setStatus("error","Error");setTimeout(()=>setStatus("idle","Ready"),1000);break;
+      case "ready":setStatus("idle","Ready");break;
       case "setup":showSetup();break;
       case "health":showHealth(m);break;
       case "setup_error":showSetupError(m.text);break;
