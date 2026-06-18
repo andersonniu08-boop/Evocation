@@ -1,18 +1,24 @@
 # AGENTS.md — Evocation Development Guidelines
 
+## Project Identity
+
+Evocation is a **goal-oriented AI development agent**. Unlike chat-first coding assistants, Evocation accepts a high-level objective and transforms it into an executable plan: **Goal → Planner → Tasks → Executor → Tracker**.
+
 ## Architecture
 
 ```
 core/                Evocation Core — shared library, zero UI
-  agent_loop.py      Core execution loop + memory extraction + streaming
+  agent_loop.py      Autonomous execution loop (plan → execute → track)
+  planning.py         Planner module — LLM-driven task decomposition
   tools.py           7 tools (read, write, edit, bash, glob, grep, memory_search)
-  provider.py        BaseProvider, MockProvider, LiteLLMProvider
-  memory.py          Memory CRUD, extraction, embedding, parsing
-  retrieval.py       Hybrid vector + FTS retrieval
-  ranking.py         Score formula: 0.35V + 0.20B + 0.15R + 0.15I + 0.10W + 0.05F
-  instincts.py       TOML loader, keyword trigger matching, bias + prompt injection
-  db.py              asyncpg pool, auto-migration
-  context.py         Prompt construction
+  provider.py         BaseProvider, OllamaProvider, LiteLLMProvider
+  memory.py           Memory CRUD, extraction, embedding, parsing
+  retrieval.py        Hybrid vector + FTS retrieval
+  ranking.py          Score formula: 0.25V + 0.20B + 0.15R + 0.15I + 0.20W + 0.05F
+  instincts.py        TOML loading
+  db.py               asyncpg pool, auto-migration
+  bridge.py           JSON-RPC bridge for VS Code extension
+  config.py           TOML config with local LLM support
 
 cli/                 Textual TUI frontend (imports core)
   main.py            Entry point (dog chat, config, status, install)
@@ -21,107 +27,58 @@ cli/                 Textual TUI frontend (imports core)
   ui/widgets.py      StatusBar, PlanPanel, DiffPreview, ToolOutput
 
 vscode/              VS Code extension (TypeScript)
-  src/extension.ts   Extension entry, terminal + webview
-  src/assets.ts      Sprite constants and asset path helpers
-  src/webview/       Sidebar panels (HTML/JS)
-  assets/            Packaged assets (icons, sprites)
-
-assets/              Project-level assets (canonical sources)
-  dog/               🐕 Evocation mascot sprite sheet + docs
-  screenshots/       Application screenshots
-  gifs/              Animated demo GIFs
-  icons/             App icons
+  src/extension.ts   Session architecture, commands, sidebar providers
+  src/bridge.ts      Bridge client for Python subprocess JSON-RPC
+  src/webview/       Editor tab + sidebar panels (HTML/JS)
 ```
 
-**Both frontends import `core/`.** No duplication of agent logic, memory, retrieval, or instincts.
+## Core Execution Loop
+
+```
+User provides Goal objective
+  → Planner generates Task plan (LLM → structured JSON)
+  → Executor iterates tasks sequentially
+    → Running tools (read, write, bash, etc.)
+    → Recording findings
+    → Yielding for user approval (destructive operations)
+  → Tracker updates progress
+  → Goal status reflects reality (pending → in_progress → completed)
+```
 
 ## Conventions
 
 - Python 3.11+, async where possible
 - asyncpg for database (raw SQL, not SQLAlchemy ORM)
-- LiteLLM for all LLM calls — never call providers directly
-- TOML for config and instincts (tomllib in stdlib)
+- LiteLLM for cloud LLM calls, httpx for local Ollama calls
+- TOML for config (tomllib in stdlib)
 - Ruff for linting, pytest for testing
-- 🐕 Dog persona in status chrome only — never in agent responses to user
-- Status messages through `dog_status(message)` / `on_status` callback
-- Memory extraction uses `_parse_memory_json()` for provider-agnostic parsing
-- Mascot sprite sheet at `assets/dog/evocation_spritesheet.png`; VS Code loads from `vscode/assets/dog/`
-- Sprite constants centralized in `vscode/src/assets.ts` — frame grid, state map, durations
+- Status messages through `_status(message, callback)`
+- BridgeAgentState enum drives all UI state transitions
+- Config directory: `~/.memorydog/config.toml`
 
-## MVP Scope — Implemented
+## Entity Model
 
-The following are complete and working:
-- LiteLLM multi-provider integration
-- 7 tools with error-safe execution
-- Persistent memory with PostgreSQL + pgvector
-- Hybrid retrieval (vector + FTS + ranking)
-- Local embeddings via Ollama + nomic-embed-text
-- Memory extraction with defensive JSON parsing
-- Workspace awareness (ranking boost, not hard filter)
-- Instinct engine (TOML, keyword triggers, retrieval bias, prompt injection)
-- Streaming responses via `chat_stream()` in background thread
-- Live status updates through `on_status`/`on_token` callbacks
-- Animated thinking indicator in TUI
-- `dog install` for PATH installation
-- API key diagnostics in `dog status`
-- Cross-session memory recall
-- 42 parsing tests + 38 original tests = 80 total
-
-## Out of MVP Scope
-
-Do not add (yet):
-- FastAPI, Flask, or any server
-- Redis, message queues, background workers
-- Multi-user, auth, API keys
-- Memory relations, confidence scoring
-- Automatic instinct generation
-
-## Planned Enhancements
-
-### Cross-Encoder Reranking (post-MVP)
-
-Add a second-stage reranker after the current hybrid retrieval to improve ranking precision. See `docs/specs/2026-05-31-evocation-mvp.md` for the full design.
-
-**Rationale:** Bi-encoder embeddings (nomic-embed-text) lose nuance by compressing documents into single vectors. A cross-encoder processes query+candidate jointly and produces strictly more accurate relevance scores.
-
-**Implementation sketch:**
-
-```python
-# New file: core/reranking.py
-# Dependencies: torch, transformers, sentence-transformers
-
-class CrossEncoderReranker:
-    def __init__(self, model_name: str = "BAAI/bge-reranker-v2-m3"):
-        self.model = CrossEncoder(model_name)
-
-    async def rerank(self, query: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
-        pairs = [(query, c["content"]) for c in candidates]
-        scores = self.model.predict(pairs)
-        scored = sorted(zip(scores, candidates), key=lambda x: x[0], reverse=True)
-        return [c for _, c in scored[:top_k]]
-```
-
-**Integration into retrieval pipeline:**
-1. First-stage: hybrid search → formula score → top 20 (unchanged)
-2. Second-stage: cross-encoder rerank top 20 → top 5
-3. Fallback: if reranker unavailable, return formula-scored top 5
-
-**Models considered:** BAAI/bge-reranker-v2-m3 (high quality, ~2.2GB), ms-marco-MiniLM-L-6-v2 (lightweight, ~80MB)
+| Entity | Source | Description |
+|--------|--------|-------------|
+| **Goal** | `goals` table | High-level objective with status tracking |
+| **Task** | Planner output | JSON plan steps generated from Goal |
+| **Session** | `conversations` table | Chat sessions linked to goals via `goal_id` |
+| **Memory** | `memories` table | Persistent facts with pgvector embeddings |
 
 ## Design Spec
 
 Read `docs/specs/2026-05-31-evocation-mvp.md` for the full design rationale.
+Read `PLAN.md` for the implementation roadmap.
+Read `DESIGN.md` for the UI/UX architecture.
 
 ## Testing
 
 ```bash
-pytest tests/                          # 80 tests
-python -m tests.benchmarks.harness     # A/B benchmarks
+pytest tests/                          # 125 tests
 ```
 
 ## Linting
 
 ```bash
 ruff check core/ cli/ tests/
-ruff format core/ cli/ tests/
 ```
