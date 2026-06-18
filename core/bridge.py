@@ -33,9 +33,9 @@ class BridgeAgentState(StrEnum):
     """
     READY = "Ready"
     THINKING = "Thinking"
-    RETRIEVING_MEMORIES = "RetrievingMemories"
+    RETRIEVING_MEMORIES = "RetrievingKnowledge"
     RUNNING_TOOLS = "RunningTools"
-    EXTRACTING_MEMORIES = "ExtractingMemories"
+    EXTRACTING_MEMORIES = "ExtractingKnowledge"
     SUCCESS = "Success"
     ERROR = "Error"
 
@@ -74,6 +74,14 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
         return await handle_current_model()
     elif method == "ensure_model":
         return await handle_ensure_model()
+    elif method == "get_goals":
+        return await handle_get_goals()
+    elif method == "create_goal":
+        return await handle_create_goal(params)
+    elif method == "update_goal":
+        return await handle_update_goal(params)
+    elif method == "get_goal":
+        return await handle_get_goal(params)
     elif method == "ping":
         return {"pong": True}
     else:
@@ -478,6 +486,140 @@ async def handle_ensure_model() -> dict:
         return {"needed": True, "pulling": True, "message": f"Model {model} not found locally. Auto-pulling... (this may take a few minutes)"}
     except Exception as e:
         return {"needed": False, "error": str(e)}
+
+
+# ═══════════════════════════════════════════════════════════
+# Goal CRUD
+# ═══════════════════════════════════════════════════════════
+
+async def handle_get_goals() -> dict:
+    """Return all goals."""
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT id, title, objective, status, progress,
+                   created_at, completed_at
+            FROM goals ORDER BY created_at DESC LIMIT 50
+        """)
+        goals = [
+            {
+                "id": str(r["id"]),
+                "title": r["title"],
+                "objective": r["objective"],
+                "status": r["status"],
+                "progress": r["progress"] or "",
+                "created_at": str(r["created_at"]),
+                "completed_at": str(r["completed_at"]) if r["completed_at"] else None,
+                "session_id": None,
+            }
+            for r in rows
+        ]
+    return {"goals": goals}
+
+
+async def handle_create_goal(params: dict) -> dict:
+    """Create a new goal."""
+    title = params.get("title", "")
+    objective = params.get("objective", "")
+    if not title:
+        return {"error": "title is required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO goals (title, objective)
+               VALUES ($1, $2) RETURNING id, title, objective, status, progress, created_at, completed_at""",
+            title, objective,
+        )
+    return {
+        "goal": {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "objective": row["objective"],
+            "status": row["status"],
+            "progress": row["progress"] or "",
+            "created_at": str(row["created_at"]),
+            "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
+            "session_id": None,
+        }
+    }
+
+
+async def handle_update_goal(params: dict) -> dict:
+    """Update a goal's status and/or progress."""
+    goal_id = params.get("goal_id", "")
+    status = params.get("status", "")
+    progress = params.get("progress")
+
+    if not goal_id:
+        return {"error": "goal_id is required"}
+
+    valid_statuses = {"pending", "in_progress", "completed", "failed"}
+    if status and status not in valid_statuses:
+        return {"error": f"Invalid status: {status}"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM goals WHERE id = $1", goal_id)
+        if not row:
+            return {"error": "Goal not found"}
+
+        new_status = status or row["status"]
+        new_progress = progress if progress is not None else row["progress"]
+        completed_at = "NOW()" if new_status in ("completed", "failed") else None
+
+        await conn.execute(
+            """UPDATE goals SET status = $1, progress = $2,
+               completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN NOW() ELSE completed_at END
+               WHERE id = $3""",
+            new_status, new_progress, goal_id,
+        )
+        row = await conn.fetchrow("SELECT * FROM goals WHERE id = $1", goal_id)
+    return {
+        "goal": {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "objective": row["objective"],
+            "status": row["status"],
+            "progress": row["progress"] or "",
+            "created_at": str(row["created_at"]),
+            "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
+            "session_id": None,
+        }
+    }
+
+
+async def handle_get_goal(params: dict) -> dict:
+    """Get a single goal by ID."""
+    goal_id = params.get("goal_id", "")
+    if not goal_id:
+        return {"error": "goal_id is required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM goals WHERE id = $1", goal_id)
+        if not row:
+            return {"error": "Goal not found"}
+    return {
+        "goal": {
+            "id": str(row["id"]),
+            "title": row["title"],
+            "objective": row["objective"],
+            "status": row["status"],
+            "progress": row["progress"] or "",
+            "created_at": str(row["created_at"]),
+            "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
+            "session_id": None,
+        }
+    }
 
 
 def _notify(method: str, params: dict):

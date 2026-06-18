@@ -360,7 +360,7 @@ def _build_system_with_context(workspace: str, memory_context: str, instincts: l
     from core.instincts import get_instinct_prompts
 
     parts = [
-        "You are MemoryDog, a coding agent with persistent memory.",
+        "You are Evocation, a coding agent with persistent memory.",
         "",
         "## Memory System",
         "You have persistent memory that carries knowledge across sessions.",
@@ -378,7 +378,7 @@ def _build_system_with_context(workspace: str, memory_context: str, instincts: l
     ]
 
     if memory_context:
-        parts.append(f"\n## Retrieved Memories\n{memory_context}")
+        parts.append(f"\n## Retrieved Knowledge\n{memory_context}")
 
     instinct_prompts = get_instinct_prompts(instincts)
     if instinct_prompts:

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MemoryDog Chat</title>
+<title>Evocation</title>
 <style>
   :root {
     --bg: #1e1e1e; --fg: #d4d4d4; --accent: #007acc;
@@ -113,7 +113,7 @@
 <div class="conversation" id="conversation"></div>
 
 <div class="input-area">
-  <textarea id="userInput" placeholder="Message MemoryDog… (Enter to send)" rows="1"></textarea>
+  <textarea id="userInput" placeholder="Message Evocation… (Enter to send)" rows="1"></textarea>
   <button id="sendBtn">Send</button>
 </div>
 
@@ -160,7 +160,7 @@
     const m=e.data;
     switch(m.type){
       case "state":(function(s){
-        if(s==="RetrievingMemories")setStatus("sniffing","Fetching memories…",s.detail);
+        if(s==="RetrievingKnowledge")setStatus("sniffing","Fetching memories…",s.detail);
         else if(s==="Thinking")setStatus("thinking","Thinking…",s.detail);
         else if(s==="RunningTools")setStatus("running","Running tools…",s.detail);
         else if(s==="Success"){setStatus("success","Done");setTimeout(()=>setStatus("idle","Ready"),1000);}
@@ -229,7 +229,7 @@
     }
 
     conv.innerHTML = `<div class="welcome">
-      <h2>🐕 MemoryDog</h2>
+      <h2>⚡ Evocation</h2>
       <div class="setup-form">
         <select id="modelSelect" style="background:var(--surface);border:1px solid var(--accent);color:var(--fg);padding:10px 14px;border-radius:6px;font-size:14px;outline:none">
           <optgroup label="🖥 Local (Ollama)">

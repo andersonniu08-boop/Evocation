@@ -42,8 +42,8 @@ export function activate(context: vscode.ExtensionContext) {
   extensionContext = context;
   statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   statusBarItem.text = "$(paw) MemoryDog";
-  statusBarItem.tooltip = "MemoryDog";
-  statusBarItem.command = "memorydog.newSession";
+  statusBarItem.tooltip = "Evocation";
+  statusBarItem.command = "evocation.newSession";
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
@@ -53,44 +53,44 @@ export function activate(context: vscode.ExtensionContext) {
   // ── Sidebar: Sessions ──────────────────────────────────
   const sessionTree = new SessionTreeProvider(context.extensionUri);
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("memorydog.sessions", sessionTree)
+    vscode.window.registerTreeDataProvider("evocation.sessions", sessionTree)
   );
 
-  // ── Sidebar: Memories ──────────────────────────────────
+  // ── Sidebar: Knowledge ──────────────────────────────────
   const memoryProvider = new MemoryPanelProvider(context.extensionUri, bridge);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("memorydog.memoryPanel", memoryProvider)
+    vscode.window.registerWebviewViewProvider("evocation.memoryPanel", memoryProvider)
   );
 
   // ── Sidebar: Instincts ─────────────────────────────────
   const instinctProvider = new InstinctPanelProvider(context.extensionUri, bridge);
   context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider("memorydog.instinctPanel", instinctProvider)
+    vscode.window.registerWebviewViewProvider("evocation.instinctPanel", instinctProvider)
   );
 
   // ── Commands ───────────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand("memorydog.newSession", () => openSession(context, generateId(), `Session ${sessions.size + 1}`, getWorkspaceName())),
-    vscode.commands.registerCommand("memorydog.openSession", (sid?: string) => {
+    vscode.commands.registerCommand("evocation.newSession", () => openSession(context, generateId(), `Session ${sessions.size + 1}`, getWorkspaceName())),
+    vscode.commands.registerCommand("evocation.openSession", (sid?: string) => {
       if (sid) openSession(context, sid);
       else if (activeSessionId) openSession(context, activeSessionId);
     }),
-    vscode.commands.registerCommand("memorydog.closeSession", (sid?: string) => closeSession(sid || activeSessionId)),
-    vscode.commands.registerCommand("memorydog.renameSession", (sid?: string) => renameSession(sid || activeSessionId)),
-    vscode.commands.registerCommand("memorydog.configure", configureApiKey),
-    vscode.commands.registerCommand("memorydog.showQuickActions", showQuickActions),
+    vscode.commands.registerCommand("evocation.closeSession", (sid?: string) => closeSession(sid || activeSessionId)),
+    vscode.commands.registerCommand("evocation.renameSession", (sid?: string) => renameSession(sid || activeSessionId)),
+    vscode.commands.registerCommand("evocation.configure", configureApiKey),
+    vscode.commands.registerCommand("evocation.showQuickActions", showQuickActions),
     // Legacy
-    vscode.commands.registerCommand("memorydog.start", () => vscode.commands.executeCommand("memorydog.newSession")),
-    vscode.commands.registerCommand("memorydog.startChat", () => vscode.commands.executeCommand("memorydog.newSession")),
-    vscode.commands.registerCommand("memorydog.showMemoryPanel", () => vscode.commands.executeCommand("memorydog.memoryPanel.focus")),
-    vscode.commands.registerCommand("memorydog.showInstinctPanel", () => vscode.commands.executeCommand("memorydog.instinctPanel.focus")),
+    vscode.commands.registerCommand("evocation.start", () => vscode.commands.executeCommand("evocation.newSession")),
+    vscode.commands.registerCommand("evocation.startChat", () => vscode.commands.executeCommand("evocation.newSession")),
+    vscode.commands.registerCommand("evocation.showMemoryPanel", () => vscode.commands.executeCommand("evocation.memoryPanel.focus")),
+    vscode.commands.registerCommand("evocation.showInstinctPanel", () => vscode.commands.executeCommand("evocation.instinctPanel.focus")),
   );
 
   // ── Config listener ─────────────────────────────────────
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration("memorydog.apiKey")) {
-        const apiKey = vscode.workspace.getConfiguration("memorydog").get("apiKey") as string;
+      if (e.affectsConfiguration("evocation.apiKey")) {
+        const apiKey = vscode.workspace.getConfiguration("evocation").get("apiKey") as string;
         if (apiKey && bridge.isRunning) bridge.setConfig(apiKey).catch(() => {});
       }
     })
@@ -133,8 +133,8 @@ function openSession(context: vscode.ExtensionContext, sessionId: string, name?:
   } else {
     const title = `${session.name}`;
     session.panel = vscode.window.createWebviewPanel(
-      `memorydog.session.${sessionId}`,
-      `MemoryDog: ${title}`,
+      `evocation.session.${sessionId}`,
+      `Evocation: ${title}`,
       { viewColumn: vscode.ViewColumn.Active, preserveFocus: false },
       { enableScripts: true, retainContextWhenHidden: true }
     );
@@ -147,7 +147,7 @@ function openSession(context: vscode.ExtensionContext, sessionId: string, name?:
           if (!bridge.isRunning) {
             session!.panel!.webview.postMessage({ type: "setup" });
           } else {
-            const apiKey = vscode.workspace.getConfiguration("memorydog").get("apiKey") as string;
+            const apiKey = vscode.workspace.getConfiguration("evocation").get("apiKey") as string;
             session!.panel!.webview.postMessage({ type: apiKey ? "ready" : "setup" });
           }
           break;
@@ -200,7 +200,7 @@ async function renameSession(sessionId: string | null) {
   if (newName && newName.trim()) {
     session.name = newName.trim();
     if (session.panel) {
-      session.panel.title = `MemoryDog: ${session.name}`;
+      session.panel.title = `Evocation: ${session.name}`;
     }
   }
 }
@@ -221,11 +221,11 @@ function persistSessions(context: vscode.ExtensionContext) {
   for (const [, s] of sessions) {
     data.push({ id: s.id, name: s.name, workspace: s.workspace, createdAt: s.createdAt });
   }
-  context.workspaceState.update("memorydog.sessions", data);
+  context.workspaceState.update("evocation.sessions", data);
 }
 
 async function restoreSessions(context: vscode.ExtensionContext, tree: SessionTreeProvider) {
-  const data = context.workspaceState.get<StoredSession[]>("memorydog.sessions");
+  const data = context.workspaceState.get<StoredSession[]>("evocation.sessions");
   if (data && data.length > 0) {
     for (const s of data) {
       if (!sessions.has(s.id)) {
@@ -265,9 +265,9 @@ async function handleSetConfig(session: Session, msg: any) {
     return;
   }
 
-  await vscode.workspace.getConfiguration("memorydog").update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
+  await vscode.workspace.getConfiguration("evocation").update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
   if (msg.model) {
-    await vscode.workspace.getConfiguration("memorydog").update("model", msg.model, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration("evocation").update("model", msg.model, vscode.ConfigurationTarget.Global);
   }
 
   try { await bridge.setConfig(apiKey, msg.model); } catch { }
@@ -325,7 +325,7 @@ async function handleSetConfig(session: Session, msg: any) {
 }
 
 async function handleChat(session: Session, text: string) {
-  const configuredKey = (vscode.workspace.getConfiguration("memorydog").get("apiKey") as string || "").trim();
+  const configuredKey = (vscode.workspace.getConfiguration("evocation").get("apiKey") as string || "").trim();
   if (!configuredKey && !text.startsWith("/")) {
     sendToChat(session, { type: "setup_error", text: "Please enter an API key before chatting." });
     return;
@@ -340,7 +340,7 @@ async function handleChat(session: Session, text: string) {
   if (!bridge.isRunning) {
     try {
       await bridge.start();
-      const apiKey = vscode.workspace.getConfiguration("memorydog").get("apiKey") as string;
+      const apiKey = vscode.workspace.getConfiguration("evocation").get("apiKey") as string;
       if (apiKey) await bridge.setConfig(apiKey);
     } catch (e: any) {
       sendToChat(session, { type: "error", text: `Bridge failed: ${e.message}` });
@@ -448,7 +448,7 @@ async function handleSlashCommand(session: Session, text: string) {
 
     case "/new": {
       const name = arg || `Session ${sessions.size + 1}`;
-      vscode.commands.executeCommand("memorydog.newSession");
+      vscode.commands.executeCommand("evocation.newSession");
       break;
     }
 
@@ -505,7 +505,7 @@ async function handleSlashCommand(session: Session, text: string) {
     }
 
     case "/clear":
-      vscode.commands.executeCommand("memorydog.closeSession", session.id);
+      vscode.commands.executeCommand("evocation.closeSession", session.id);
       sendToChat(session, { type: "response", content: "Context cleared." });
       break;
 
@@ -527,7 +527,7 @@ async function handleSlashCommand(session: Session, text: string) {
           `**Provider:** ${info.provider_type}`,
           `**Model:** ${info.model}`,
           `**Session:** ${session.name} (${sessions.size} total)`,
-          `**Memories:** ${status.memory_count}`,
+          `**Knowledge:** ${status.memory_count}`,
           `**Instincts:** ${status.instinct_count}`,
           `**Branches:** ${branches.size}`,
           `**Bridge:** ${bridge.isRunning ? "✅ running" : "❌ stopped"}`,
@@ -565,7 +565,7 @@ class SessionTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 
     // New Session button
     const newBtn = new vscode.TreeItem("New Session", vscode.TreeItemCollapsibleState.None);
-    newBtn.command = { command: "memorydog.newSession", title: "New Session" };
+    newBtn.command = { command: "evocation.newSession", title: "New Session" };
     newBtn.iconPath = new vscode.ThemeIcon("add");
     items.push(newBtn);
 
@@ -578,7 +578,7 @@ class SessionTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
       item.tooltip = `Workspace: ${s.workspace}\nCreated: ${new Date(s.createdAt).toLocaleString()}\nClick to open`;
       item.contextValue = "session";
       item.id = s.id;
-      item.command = { command: "memorydog.openSession", title: "Open", arguments: [s.id] };
+      item.command = { command: "evocation.openSession", title: "Open", arguments: [s.id] };
       items.push(item);
     }
 
@@ -605,18 +605,18 @@ async function showQuickActions() {
   ];
 
   const choice = await vscode.window.showQuickPick(items, {
-    placeHolder: "🐕 MemoryDog — what would you like to do?",
+    placeHolder: "🐕 Evocation — what would you like to do?",
   });
   if (!choice) return;
   const label = choice.label;
-  if (label.includes("New Session")) vscode.commands.executeCommand("memorydog.newSession");
-  else if (label.includes("Memory Browser")) vscode.commands.executeCommand("memorydog.memoryPanel.focus");
-  else if (label.includes("Instincts")) vscode.commands.executeCommand("memorydog.instinctPanel.focus");
-  else if (label.includes("Configure")) vscode.commands.executeCommand("memorydog.configure");
+  if (label.includes("New Session")) vscode.commands.executeCommand("evocation.newSession");
+  else if (label.includes("Memory Browser")) vscode.commands.executeCommand("evocation.memoryPanel.focus");
+  else if (label.includes("Instincts")) vscode.commands.executeCommand("evocation.instinctPanel.focus");
+  else if (label.includes("Configure")) vscode.commands.executeCommand("evocation.configure");
   else {
     // It's a session — find by name
     const session = listSessions().find(s => label.includes(s.name));
-    if (session) vscode.commands.executeCommand("memorydog.openSession", session.id);
+    if (session) vscode.commands.executeCommand("evocation.openSession", session.id);
   }
 }
 
@@ -625,11 +625,11 @@ async function configureApiKey() {
     prompt: "Enter your API key",
     password: true,
     placeHolder: "sk-...",
-    value: vscode.workspace.getConfiguration("memorydog").get("apiKey") || "",
+    value: vscode.workspace.getConfiguration("evocation").get("apiKey") || "",
   });
   const trimmed = (apiKey || "").trim();
   if (apiKey !== undefined && trimmed) {
-    await vscode.workspace.getConfiguration("memorydog").update("apiKey", trimmed, vscode.ConfigurationTarget.Global);
+    await vscode.workspace.getConfiguration("evocation").update("apiKey", trimmed, vscode.ConfigurationTarget.Global);
     try {
       await bridge.setConfig(trimmed);
       vscode.window.showInformationMessage("🐕 API key saved!");
@@ -652,18 +652,18 @@ class MemoryPanelProvider implements vscode.WebviewViewProvider {
     webviewView.webview.options = { enableScripts: true };
     webviewView.webview.html = readWebviewFile(this.extensionUri, webviewView.webview, "memory.html");
     webviewView.webview.onDidReceiveMessage(async (msg) => {
-      if (msg.type === "filter") await this.loadMemories(webviewView, msg.workspace || getWorkspaceName(), msg.workspace || undefined);
+      if (msg.type === "filter") await this.loadKnowledge(webviewView, msg.workspace || getWorkspaceName(), msg.workspace || undefined);
     });
-    setTimeout(() => this.loadMemories(webviewView, getWorkspaceName()), 500);
+    setTimeout(() => this.loadKnowledge(webviewView, getWorkspaceName()), 500);
   }
 
-  private async loadMemories(webviewView: vscode.WebviewView, workspace: string, query?: string) {
+  private async loadKnowledge(webviewView: vscode.WebviewView, workspace: string, query?: string) {
     if (!bridge.isRunning) {
       await startBridgeForPanel(webviewView.webview);
       if (!bridge.isRunning) return;
     }
     try {
-      const result = await bridge.getMemories(workspace, query);
+      const result = await bridge.getKnowledge(workspace, query);
       if (result.error) { webviewView.webview.postMessage({ type: "status", text: result.error }); return; }
       const session = activeSessionId ? sessions.get(activeSessionId) : null;
       webviewView.webview.postMessage({
@@ -711,7 +711,7 @@ class InstinctPanelProvider implements vscode.WebviewViewProvider {
 async function startBridgeForPanel(webview: vscode.Webview) {
   try {
     await bridge.start();
-    const apiKey = vscode.workspace.getConfiguration("memorydog").get("apiKey") as string;
+    const apiKey = vscode.workspace.getConfiguration("evocation").get("apiKey") as string;
     if (apiKey) await bridge.setConfig(apiKey);
     refreshStatusBar();
   } catch (e: any) {
@@ -726,7 +726,7 @@ async function startBridgeForPanel(webview: vscode.Webview) {
 async function startBridgeAsync() {
   try {
     await bridge.start();
-    const apiKey = vscode.workspace.getConfiguration("memorydog").get("apiKey") as string;
+    const apiKey = vscode.workspace.getConfiguration("evocation").get("apiKey") as string;
     if (apiKey) await bridge.setConfig(apiKey);
     refreshStatusBar();
   } catch (e) {

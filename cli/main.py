@@ -132,7 +132,7 @@ def _run_config_wizard():
         config.provider.api_base = api_base
 
     save_config(config)
-    print("\n\U0001f415 Config saved to ~/.memorydog/config.toml")
+    print("\n\U0001f415 Config saved to ~/.evocation/config.toml")
     print("Embeddings: Ollama + nomic-embed-text (local)")
     print("Run 'dog chat' to start.")
     print("Run 'dog instinct list' to see your instincts.")
@@ -199,8 +199,8 @@ def _run_status():
     print(f"  Provider: {config.provider.model}")
     print(f"  Embedding: {config.embedding.model}")
     print(f"  Instincts: {len(instincts)} loaded")
-    print("  Config: ~/.memorydog/config.toml")
-    print("  Instincts file: ~/.memorydog/instincts.toml")
+    print("  Config: ~/.evocation/config.toml")
+    print("  Instincts file: ~/.evocation/instincts.toml")
 
     if not config.provider.api_key:
         print("\n  \u26a0 No API key set. Run 'dog config' to configure.")

@@ -55,12 +55,25 @@ export interface InstinctDef {
   retrieval_bias: string[];
 }
 
+export type GoalStatus = "pending" | "in_progress" | "completed" | "failed";
+
+export interface Goal {
+  id: string;
+  title: string;
+  objective: string;
+  status: GoalStatus;
+  progress: string;
+  created_at: string;
+  completed_at: string | null;
+  session_id: string | null;
+}
+
 export type BridgeAgentState =
   | "Ready"
   | "Thinking"
-  | "RetrievingMemories"
+  | "RetrievingKnowledge"
   | "RunningTools"
-  | "ExtractingMemories"
+  | "ExtractingKnowledge"
   | "Success"
   | "Error";
 
@@ -71,12 +84,12 @@ export class MemoryDogBridge {
   private buffer = "";
   private onStatus: ((msg: string) => void) | null = null;
   private onToken: ((token: string) => void) | null = null;
-  private onMemories: ((memories: MemoryRecord[]) => void) | null = null;
+  private onKnowledge: ((memories: MemoryRecord[]) => void) | null = null;
   private onState: ((state: BridgeAgentState, detail: string) => void) | null = null;
   private outputChannel: vscode.OutputChannel;
 
   constructor() {
-    this.outputChannel = vscode.window.createOutputChannel("MemoryDog Bridge");
+    this.outputChannel = vscode.window.createOutputChannel("Evocation Bridge");
   }
 
   /** Start the Python bridge process. */
@@ -179,12 +192,12 @@ export class MemoryDogBridge {
     onStatus: (msg: string) => void,
     onToken: (token: string) => void,
     onState?: (state: BridgeAgentState, detail: string) => void,
-    onMemories?: (memories: MemoryRecord[]) => void
+    onKnowledge?: (memories: MemoryRecord[]) => void
   ): Promise<{ content: string; error?: string; provider_error?: boolean }> {
     this.onStatus = onStatus;
     this.onToken = onToken;
     this.onState = onState || null;
-    this.onMemories = onMemories || null;
+    this.onKnowledge = onKnowledge || null;
 
     try {
       const result = await this.call("chat", {
@@ -196,12 +209,12 @@ export class MemoryDogBridge {
       this.onStatus = null;
       this.onToken = null;
       this.onState = null;
-      this.onMemories = null;
+      this.onKnowledge = null;
     }
   }
 
   /** Get memories for a workspace. */
-  async getMemories(workspace: string, query?: string, limit?: number): Promise<{ memories: MemoryRecord[]; total: number; error?: string }> {
+  async getKnowledge(workspace: string, query?: string, limit?: number): Promise<{ memories: MemoryRecord[]; total: number; error?: string }> {
     const result = await this.call("get_memories", {
       workspace,
       query: query || "",
@@ -265,6 +278,28 @@ export class MemoryDogBridge {
     return result as unknown as { needed: boolean; pulling?: boolean; message: string };
   }
 
+  // ═══════════ Goal CRUD ═══════════
+
+  async getGoals(): Promise<{ goals: Goal[] }> {
+    const result = await this.call("get_goals", {});
+    return result as unknown as { goals: Goal[] };
+  }
+
+  async createGoal(title: string, objective: string): Promise<{ goal: Goal }> {
+    const result = await this.call("create_goal", { title, objective });
+    return result as unknown as { goal: Goal };
+  }
+
+  async updateGoalStatus(goalId: string, status: GoalStatus, progress?: string): Promise<{ goal: Goal }> {
+    const result = await this.call("update_goal", { goal_id: goalId, status, progress });
+    return result as unknown as { goal: Goal };
+  }
+
+  async getGoal(goalId: string): Promise<{ goal: Goal }> {
+    const result = await this.call("get_goal", { goal_id: goalId });
+    return result as unknown as { goal: Goal };
+  }
+
   /** Process buffered stdout lines. */
   private processBuffer(): void {
     const lines = this.buffer.split("\n");
@@ -289,8 +324,8 @@ export class MemoryDogBridge {
         this.onStatus(notif.params.message as string);
       } else if (notif.method === "token" && this.onToken) {
         this.onToken(notif.params.token as string);
-      } else if (notif.method === "memories" && this.onMemories) {
-        this.onMemories((notif.params.memories as MemoryRecord[]) || []);
+      } else if (notif.method === "memories" && this.onKnowledge) {
+        this.onKnowledge((notif.params.memories as MemoryRecord[]) || []);
       } else if (notif.method === "state" && this.onState) {
         this.onState(notif.params.state as BridgeAgentState, notif.params.detail as string);
       }

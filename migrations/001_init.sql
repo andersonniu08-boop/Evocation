@@ -60,6 +60,21 @@ CREATE TABLE user_preferences (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- Goal tracking
+CREATE TABLE goals (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    objective TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
+    progress TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
+);
+
+-- Link sessions to goals (nullable — existing sessions have no goal)
+ALTER TABLE conversations ADD COLUMN goal_id UUID REFERENCES goals(id);
+
 -- Vector index
 CREATE INDEX idx_memories_embedding ON memories
     USING hnsw (embedding vector_cosine_ops)

@@ -1,9 +1,9 @@
 {
-  "name": "memorydog",
-  "displayName": "MemoryDog",
+  "name": "evocation",
+  "displayName": "Evocation",
   "description": "A memory-augmented coding agent — persistent memory, hybrid retrieval, and instincts",
   "version": "0.1.0",
-  "publisher": "memorydog-dev",
+  "publisher": "evocation-dev",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -16,122 +16,122 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:memorydog.newSession",
-    "onCommand:memorydog.openSession",
-    "onCommand:memorydog.closeSession",
-    "onCommand:memorydog.configure",
-    "onCommand:memorydog.showQuickActions",
-    "onView:memorydog.sessions",
-    "onView:memorydog.memoryPanel",
-    "onView:memorydog.instinctPanel"
+    "onCommand:evocation.newSession",
+    "onCommand:evocation.openSession",
+    "onCommand:evocation.closeSession",
+    "onCommand:evocation.configure",
+    "onCommand:evocation.showQuickActions",
+    "onView:evocation.sessions",
+    "onView:evocation.memoryPanel",
+    "onView:evocation.instinctPanel"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "memorydog.newSession",
-        "title": "MemoryDog: New Session",
+        "command": "evocation.newSession",
+        "title": "Evocation: New Session",
         "icon": "$(add)"
       },
       {
-        "command": "memorydog.openSession",
-        "title": "MemoryDog: Open Session"
+        "command": "evocation.openSession",
+        "title": "Evocation: Open Session"
       },
       {
-        "command": "memorydog.closeSession",
-        "title": "MemoryDog: Close Session"
+        "command": "evocation.closeSession",
+        "title": "Evocation: Close Session"
       },
       {
-        "command": "memorydog.renameSession",
-        "title": "MemoryDog: Rename Session"
+        "command": "evocation.renameSession",
+        "title": "Evocation: Rename Session"
       },
       {
-        "command": "memorydog.configure",
-        "title": "MemoryDog: Configure API Key",
+        "command": "evocation.configure",
+        "title": "Evocation: Configure API Key",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "memorydog.showQuickActions",
-        "title": "MemoryDog: Quick Actions"
+        "command": "evocation.showQuickActions",
+        "title": "Evocation: Quick Actions"
       },
       {
-        "command": "memorydog.start",
-        "title": "MemoryDog: Start Agent (legacy)"
+        "command": "evocation.start",
+        "title": "Evocation: Start Agent (legacy)"
       },
       {
-        "command": "memorydog.startChat",
-        "title": "MemoryDog: Start Chat (legacy)"
+        "command": "evocation.startChat",
+        "title": "Evocation: Start Chat (legacy)"
       },
       {
-        "command": "memorydog.showMemoryPanel",
-        "title": "MemoryDog: Show Memory Browser"
+        "command": "evocation.showMemoryPanel",
+        "title": "Evocation: Show Memory Browser"
       },
       {
-        "command": "memorydog.showInstinctPanel",
-        "title": "MemoryDog: Show Instincts"
+        "command": "evocation.showInstinctPanel",
+        "title": "Evocation: Show Instincts"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "memorydog.newSession",
-          "when": "view == memorydog.sessions",
+          "command": "evocation.newSession",
+          "when": "view == evocation.sessions",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "memorydog.openSession",
-          "when": "view == memorydog.sessions && viewItem == session",
+          "command": "evocation.openSession",
+          "when": "view == evocation.sessions && viewItem == session",
           "group": "inline"
         },
         {
-          "command": "memorydog.closeSession",
-          "when": "view == memorydog.sessions && viewItem == session"
+          "command": "evocation.closeSession",
+          "when": "view == evocation.sessions && viewItem == session"
         },
         {
-          "command": "memorydog.renameSession",
-          "when": "view == memorydog.sessions && viewItem == session"
+          "command": "evocation.renameSession",
+          "when": "view == evocation.sessions && viewItem == session"
         }
       ]
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "memorydog",
-          "title": "MemoryDog",
+          "id": "evocation",
+          "title": "Evocation",
           "icon": "assets/dog/idle.png"
         }
       ]
     },
     "views": {
-      "memorydog": [
+      "evocation": [
         {
           "type": "tree",
-          "id": "memorydog.sessions",
+          "id": "evocation.sessions",
           "name": "Sessions"
         },
         {
           "type": "webview",
-          "id": "memorydog.memoryPanel",
-          "name": "Memories"
+          "id": "evocation.memoryPanel",
+          "name": "Knowledge"
         },
         {
           "type": "webview",
-          "id": "memorydog.instinctPanel",
+          "id": "evocation.instinctPanel",
           "name": "Instincts"
         }
       ]
     },
     "configuration": {
-      "title": "MemoryDog",
+      "title": "Evocation",
       "properties": {
-        "memorydog.apiKey": {
+        "evocation.apiKey": {
           "type": "string",
           "default": "",
           "description": "API key for your LLM provider (e.g. DeepSeek, OpenAI, Anthropic)"
         },
-        "memorydog.model": {
+        "evocation.model": {
           "type": "string",
           "default": "deepseek/deepseek-chat",
           "description": "LiteLLM model string (e.g. deepseek/deepseek-chat, openai/gpt-4o, anthropic/claude-sonnet-4-20250514)"
