@@ -7,54 +7,27 @@ from core.provider import BaseProvider
 
 
 class EvocationApp(App):
-    """Evocation Textual application."""
+    """Evocation — minimal, single-column TUI."""
 
     CSS = """
-    #main-layout {
-        height: 1fr;
-    }
-    #left-pane {
-        width: 2fr;
-        height: 100%;
-        border: solid $primary;
-    }
-    #right-pane {
-        width: 1fr;
-        height: 100%;
-        border: solid $primary 40%;
-        padding: 0 1;
-        display: block;
-    }
     #conversation {
         height: 1fr;
         border: none;
+        padding: 1 2;
     }
-    #streaming-response {
+    #streaming-line {
         height: auto;
         min-height: 1;
-        max-height: 5;
+        padding: 0 2;
+    }
+    #status-indicator {
+        height: 1;
         dock: bottom;
-        margin: 0 1;
-        color: $text;
-        background: $surface;
-    }
-    #file-preview {
-        height: 1fr;
-        border: solid $primary 50%;
-    }
-    #tool-output {
-        height: 1fr;
-        border: solid $secondary 50%;
+        padding: 0 2;
     }
     #user-input {
         dock: bottom;
-        margin: 1 0;
-    }
-    StatusBar {
-        dock: bottom;
-        height: 1;
-        background: $panel;
-        border-top: solid $primary;
+        margin: 1 2;
     }
     """
 
