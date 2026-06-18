@@ -68,6 +68,11 @@ export interface Goal {
   session_id: string | null;
 }
 
+export interface Task {
+  description: string;
+  order: number;
+}
+
 export type BridgeAgentState =
   | "Ready"
   | "Thinking"
@@ -298,6 +303,11 @@ export class MemoryDogBridge {
   async getGoal(goalId: string): Promise<{ goal: Goal }> {
     const result = await this.call("get_goal", { goal_id: goalId });
     return result as unknown as { goal: Goal };
+  }
+
+  async generatePlan(objective: string): Promise<{ tasks: Task[]; count: number }> {
+    const result = await this.call("generate_plan", { objective });
+    return result as unknown as { tasks: Task[]; count: number };
   }
 
   /** Process buffered stdout lines. */

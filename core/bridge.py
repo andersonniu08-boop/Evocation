@@ -82,6 +82,8 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
         return await handle_update_goal(params)
     elif method == "get_goal":
         return await handle_get_goal(params)
+    elif method == "generate_plan":
+        return await handle_generate_plan(params)
     elif method == "ping":
         return {"pong": True}
     else:
@@ -486,6 +488,26 @@ async def handle_ensure_model() -> dict:
         return {"needed": True, "pulling": True, "message": f"Model {model} not found locally. Auto-pulling... (this may take a few minutes)"}
     except Exception as e:
         return {"needed": False, "error": str(e)}
+
+
+async def handle_generate_plan(params: dict) -> dict:
+    """Generate a task plan from a goal objective using the LLM."""
+    objective = params.get("objective", "")
+    if not objective.strip():
+        return {"error": "objective is required"}
+
+    from core.config import load_config
+    from core.planning import generate_plan
+    from core.provider import create_provider
+
+    config = load_config()
+    provider = create_provider(config)
+
+    try:
+        tasks = await generate_plan(objective, provider)
+        return {"tasks": tasks, "count": len(tasks)}
+    except Exception as e:
+        return {"error": str(e), "tasks": [], "count": 0}
 
 
 # ═══════════════════════════════════════════════════════════
