@@ -86,8 +86,8 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
     Agent state is persisted per workspace across calls, so conversation
     history and context carry forward between turns.
     """
-    from core.agent_loop import init_agent, run_turn
-    from core.provider import LiteLLMProvider
+    from core.agent_loop import init_agent
+    from core.provider import create_provider
 
     user_input = params.get("user_input", "")
     workspace = params.get("workspace", ".")
@@ -115,7 +115,6 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
             state = _agent_states[ws_name]
 
     from core.config import load_config
-    from core.provider import create_provider
 
     config = load_config()
     pc = config.provider
@@ -164,16 +163,18 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
         )
 
     try:
-        response = await run_turn(
-            provider,
-            state,
-            user_input,
-            on_status=on_status,
-            on_token=on_token,
-            on_memories=on_memories,
-        )
-        # Detect provider-level errors returned as content (not exceptions)
-        if response.startswith("❌") or (isinstance(response, str) and "error:" in response.lower()[:50]):
+        response = await _try_chat(provider, state, user_input, on_status, on_token, on_memories)
+        # Fallback: if primary model failed, retry with fallback from config
+        if _is_chat_error(response) and config.provider.provider_type == "ollama":
+            fallback = config.local.fallback_model
+            if fallback and provider.model != fallback:
+                _notify("status", {"message": f"Primary model failed, trying fallback: {fallback}"})
+                provider.model = fallback
+                response = await _try_chat(
+                    provider, state, user_input, on_status, on_token, on_memories
+                )
+
+        if _is_chat_error(response):
             _state_transition(BridgeAgentState.ERROR, response[:100])
             return {"content": response, "provider_error": True}
         _state_transition(BridgeAgentState.SUCCESS, "Done")
@@ -181,6 +182,21 @@ async def handle_chat(params: dict, msg_id: Any) -> dict:
     except Exception as e:
         _state_transition(BridgeAgentState.ERROR, str(e))
         return {"error": str(e), "content": ""}
+
+
+async def _try_chat(provider, state, user_input, on_status, on_token, on_memories):
+    from core.agent_loop import run_turn
+
+    return await run_turn(
+        provider, state, user_input,
+        on_status=on_status, on_token=on_token, on_memories=on_memories,
+    )
+
+
+def _is_chat_error(response: str) -> bool:
+    return response.startswith("❌") or (
+        isinstance(response, str) and "error:" in response.lower()[:50]
+    )
 
 
 async def handle_reset_chat(params: dict) -> dict:

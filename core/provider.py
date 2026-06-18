@@ -1,4 +1,6 @@
 """LLM provider abstraction."""
+from __future__ import annotations
+
 import json
 from abc import ABC, abstractmethod
 from collections.abc import Generator
@@ -364,7 +366,7 @@ class OllamaProvider(BaseProvider):
         return tool_calls
 
 
-def create_provider(config: "Config") -> BaseProvider:
+def create_provider(config: Config) -> BaseProvider:  # noqa: F821
     """Factory: return the correct provider based on config.provider.provider_type."""
     pc = config.provider
     provider_type = getattr(pc, "provider_type", "litellm") or "litellm"
