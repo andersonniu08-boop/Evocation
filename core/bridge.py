@@ -24,6 +24,11 @@ from core.agent_loop import AgentState
 _agent_states: dict[str, AgentState] = {}
 _agent_locks: dict[str, asyncio.Lock] = {}
 
+# Execution state
+_execution_running = False
+_execution_goal_id: str | None = None
+_approval_queue: asyncio.Queue = asyncio.Queue()  # pushes (approved: bool) to awaiting executor
+
 
 class BridgeAgentState(StrEnum):
     """Structured state for the agent lifecycle.
@@ -92,6 +97,12 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
         return await handle_get_goal_progress(params)
     elif method == "generate_plan":
         return await handle_generate_plan(params)
+    elif method == "start_execution":
+        return await handle_start_execution(params)
+    elif method == "approve_tool":
+        return handle_approve_tool(params)
+    elif method == "deny_tool":
+        return handle_deny_tool(params)
     elif method == "ping":
         return {"pong": True}
     else:
@@ -516,6 +527,97 @@ async def handle_generate_plan(params: dict) -> dict:
         return {"tasks": tasks, "count": len(tasks)}
     except Exception as e:
         return {"error": str(e), "tasks": [], "count": 0}
+
+
+# ═══════════════════════════════════════════════════════════
+# Execution Engine
+# ═══════════════════════════════════════════════════════════
+
+
+async def handle_start_execution(params: dict) -> dict:
+    """Start executing a goal's tasks autonomously."""
+    global _execution_running, _execution_goal_id
+
+    goal_id = params.get("goal_id", "")
+    if not goal_id:
+        return {"error": "goal_id is required"}
+
+    if _execution_running:
+        return {"error": "Execution already in progress"}
+
+    from core.config import load_config
+    from core.db import get_pool
+    from core.executor import execute_goal
+    from core.provider import create_provider
+
+    # Load goal and tasks
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        goal_row = await conn.fetchrow("SELECT * FROM goals WHERE id = $1", goal_id)
+        if not goal_row:
+            return {"error": "Goal not found"}
+        task_rows = await conn.fetch(
+            'SELECT * FROM tasks WHERE goal_id = $1 ORDER BY "order"', goal_id
+        )
+
+    goal = dict(goal_row)
+    tasks = [dict(r) for r in task_rows]
+
+    config = load_config()
+    provider = create_provider(config)
+
+    _execution_running = True
+    _execution_goal_id = goal_id
+
+    async def _run():
+        global _execution_running, _execution_goal_id
+
+        def on_status(msg: str):
+            _notify("status", {"message": f"[Execution] {msg}"})
+
+        async def on_approval(tool_name: str, params: dict, reasoning: str) -> bool:
+            _notify(
+                "approval_required",
+                {
+                    "tool": tool_name,
+                    "params": json.dumps(params),
+                    "reasoning": reasoning,
+                    "goal_id": goal_id,
+                },
+            )
+            result = await _approval_queue.get()
+            return result
+
+        try:
+            result = await execute_goal(goal, tasks, provider, on_status, on_approval)
+            # Update task statuses in DB
+            async with pool.acquire() as conn:
+                for t in tasks:
+                    await conn.execute(
+                        "UPDATE tasks SET status = $1, findings = $2 WHERE id = $3",
+                        t.get("status", "pending"), t.get("findings", ""), t["id"],
+                    )
+            _notify("status", {"message": f"Execution complete: {result['completed']} done, {result['failed']} failed"})
+        except Exception as e:
+            _notify("status", {"message": f"Execution error: {e}"})
+        finally:
+            _execution_running = False
+            _execution_goal_id = None
+
+    asyncio.create_task(_run())
+    return {"started": True, "goal_id": goal_id, "task_count": len(tasks)}
+
+
+def handle_approve_tool(params: dict) -> dict:
+    """Approve a pending tool execution."""
+    _approval_queue.put_nowait(True)
+    return {"approved": True}
+
+
+def handle_deny_tool(params: dict) -> dict:
+    """Deny a pending tool execution."""
+    _approval_queue.put_nowait(False)
+    return {"approved": False}
 
 
 # ═══════════════════════════════════════════════════════════

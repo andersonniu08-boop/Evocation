@@ -348,6 +348,24 @@ export class EvocationBridge {
     return result as unknown as GoalProgress;
   }
 
+  // ═══════════ Execution ═══════════
+
+  async startExecution(goalId: string): Promise<{ started: boolean; goal_id: string; task_count: number }> {
+    const result = await this.call("start_execution", { goal_id: goalId });
+    return result as unknown as { started: boolean; goal_id: string; task_count: number };
+  }
+
+  approveTool(): void {
+    // Fire and forget — writes to stdin, doesn't wait for response
+    const line = JSON.stringify({ jsonrpc: "2.0", id: this.nextId++, method: "approve_tool", params: {} }) + "\n";
+    this.process?.stdin?.write(line);
+  }
+
+  denyTool(): void {
+    const line = JSON.stringify({ jsonrpc: "2.0", id: this.nextId++, method: "deny_tool", params: {} }) + "\n";
+    this.process?.stdin?.write(line);
+  }
+
   /** Process buffered stdout lines. */
   private processBuffer(): void {
     const lines = this.buffer.split("\n");
