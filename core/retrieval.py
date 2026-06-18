@@ -7,6 +7,21 @@ from datetime import UTC, datetime
 from core.db import get_pool
 from core.ranking import score_memory
 
+# Relevance multipliers: goal-oriented types get boosted in retrieval
+MEMORY_TYPE_MULTIPLIER = {
+    "past_failure": 1.3,
+    "plan_architecture": 1.25,
+    "goal_definition": 1.25,
+    "task_result": 1.1,
+    "design_decision": 1.1,
+    "bug": 1.15,
+    "code_snippet": 1.05,
+    "learned_fact": 1.0,
+    "conversation": 1.0,
+    "user_preference": 1.0,
+    "task_history": 1.0,
+}
+
 
 @dataclass
 class RetrievalBudget:
@@ -321,6 +336,12 @@ async def retrieve_memories(
         acc = int(row["access_count"] or 0)
 
         s = score_memory(vec, bm, days, imp, dec, same_ws, acc, mean_access)
+
+        # Apply structural relevance multiplier based on memory type
+        mem_type = row["memory_type"]
+        type_multiplier = MEMORY_TYPE_MULTIPLIER.get(mem_type, 1.0)
+        s = s * type_multiplier
+
         scored.append((s, dict(row)))
 
     scored.sort(key=lambda x: x[0], reverse=True)

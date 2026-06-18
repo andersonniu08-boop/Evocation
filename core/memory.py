@@ -322,6 +322,10 @@ def _validate_memory_records(
         "code_snippet",
         "task_history",
         "conversation",
+        "goal_definition",
+        "plan_architecture",
+        "task_result",
+        "past_failure",
     }
 
     records = []

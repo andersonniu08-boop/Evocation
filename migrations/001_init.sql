@@ -12,7 +12,8 @@ CREATE TABLE memories (
     embedding VECTOR(768),
     memory_type TEXT NOT NULL CHECK (memory_type IN (
         'conversation', 'design_decision', 'learned_fact',
-        'user_preference', 'task_history', 'code_snippet', 'bug'
+        'user_preference', 'task_history', 'code_snippet', 'bug',
+        'goal_definition', 'plan_architecture', 'task_result', 'past_failure'
     )),
     workspace_name TEXT NOT NULL,
     importance FLOAT DEFAULT 0.5,
@@ -110,3 +111,11 @@ CREATE INDEX idx_memories_tags ON memories USING gin (tags);
 -- Conversation indexes
 CREATE INDEX idx_turns_conversation ON conversation_turns (conversation_id);
 CREATE INDEX idx_conversations_workspace ON conversations (workspace_name);
+
+-- Memory type upgrade: add goal-oriented types (does nothing if constraint already updated)
+ALTER TABLE memories DROP CONSTRAINT IF EXISTS memories_memory_type_check;
+ALTER TABLE memories ADD CONSTRAINT memories_memory_type_check CHECK (memory_type IN (
+    'conversation', 'design_decision', 'learned_fact',
+    'user_preference', 'task_history', 'code_snippet', 'bug',
+    'goal_definition', 'plan_architecture', 'task_result', 'past_failure'
+));

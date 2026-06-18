@@ -321,9 +321,42 @@ async def _retrieve_context(
     if not results:
         return "", []
 
-    lines = ["Relevant memories from previous sessions:"]
-    for i, r in enumerate(results, 1):
-        lines.append(f"{i}. [{r['memory_type']}] {r['content']}")
+    # Group memories by type for structured context injection
+    TYPE_HEADERS = {
+        "past_failure": "### Past Failures to Avoid",
+        "plan_architecture": "### Relevant Architecture",
+        "goal_definition": "### Project Goals",
+        "design_decision": "### Design Decisions",
+        "bug": "### Bug History",
+        "task_result": "### Completed Work",
+        "code_snippet": "### Code References",
+        "learned_fact": "### Context",
+        "conversation": "### Previous Discussion",
+        "user_preference": "### Preferences",
+        "task_history": "### Previous Tasks",
+    }
+
+    grouped: dict[str, list[str]] = {}
+    for r in results:
+        mtype = r.get("memory_type", "conversation")
+        if mtype not in grouped:
+            grouped[mtype] = []
+        grouped[mtype].append(f"- {r['content']}")
+
+    lines = []
+    # Order: structural knowledge first, general context last
+    priority_order = [
+        "past_failure", "plan_architecture", "goal_definition",
+        "design_decision", "bug", "task_result",
+        "code_snippet", "learned_fact", "conversation",
+        "user_preference", "task_history",
+    ]
+    for mtype in priority_order:
+        if mtype in grouped:
+            header = TYPE_HEADERS.get(mtype, f"### {mtype}")
+            lines.append(header)
+            lines.extend(grouped[mtype])
+
     return "\n".join(lines), results
 
 
