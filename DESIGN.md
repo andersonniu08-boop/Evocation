@@ -30,7 +30,7 @@ User → Goal objective
 | Panel | Content |
 |-------|---------|
 | **Goals** | Active + recent goals with status badges |
-| **Knowledge** | Searchable memory browser (pgvector hybrid retrieval) |
+| **Context** | Searchable memory browser (pgvector hybrid retrieval) |
 
 ### Editor Tab (Goal View)
 

@@ -60,7 +60,11 @@
 ## Phase 7: Execution Mode
 
 - [ ] Autonomous loop: iterate tasks, run tools, record findings
-- [ ] Tool approval gate for destructive operations (bash, write, edit)
+- [ ] **Auto-start execution** — plan executes immediately after generation (no editing phase)
+- [ ] User-selectable autonomy levels:
+  - **Safe:** Ask before every tool call
+  - **Standard (default):** Auto-run read/glob/grep/memory_search; halt on bash/write/edit
+  - **Full auto:** Run entire plan; user can pause/abort
 - [ ] Real-time activity feed
 - [ ] Error handling: task failure → halt or skip decision
 - [ ] Goal status auto-update (pending → in_progress → completed → failed)
