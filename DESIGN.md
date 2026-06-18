@@ -41,9 +41,9 @@ Opens when a goal is selected. Contains:
 - **Center scrolled:** Task checklist (plan), activity feed (recent actions)
 - **Bottom:** Goal actions (start, pause, resume, archive)
 
-### State Indicator (Mascot)
+### State Indicator
 
-The legacy dog sprite sheet (6.3MB, 8-frame PNG) is **deprecated**. Replaced by an inline SVG geometric indicator:
+The legacy dog sprite sheet (6.3MB, 8-frame PNG) has been **deprecated**. Replaced by an inline SVG geometric indicator:
 
 ```
 <svg viewBox="0 0 16 16">
