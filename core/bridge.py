@@ -82,6 +82,14 @@ async def handle_request(method: str, params: dict, msg_id: Any) -> dict | None:
         return await handle_update_goal(params)
     elif method == "get_goal":
         return await handle_get_goal(params)
+    elif method == "create_tasks":
+        return await handle_create_tasks(params)
+    elif method == "update_task":
+        return await handle_update_task(params)
+    elif method == "get_tasks":
+        return await handle_get_tasks(params)
+    elif method == "get_goal_progress":
+        return await handle_get_goal_progress(params)
     elif method == "generate_plan":
         return await handle_generate_plan(params)
     elif method == "ping":
@@ -641,6 +649,151 @@ async def handle_get_goal(params: dict) -> dict:
             "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
             "session_id": None,
         }
+    }
+
+
+# ═══════════════════════════════════════════════════════════
+# Task CRUD + Progress
+# ═══════════════════════════════════════════════════════════
+
+
+def _task_row(row) -> dict:
+    return {
+        "id": str(row["id"]),
+        "goal_id": str(row["goal_id"]),
+        "description": row["description"],
+        "status": row["status"],
+        "order": int(row["order"]),
+        "findings": row["findings"] or "",
+        "notes": row["notes"] or "",
+        "started_at": str(row["started_at"]) if row["started_at"] else None,
+        "completed_at": str(row["completed_at"]) if row["completed_at"] else None,
+        "created_at": str(row["created_at"]),
+    }
+
+
+async def handle_create_tasks(params: dict) -> dict:
+    """Bulk create tasks for a goal."""
+    goal_id = params.get("goal_id", "")
+    tasks = params.get("tasks", [])
+    if not goal_id or not tasks:
+        return {"error": "goal_id and tasks are required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Verify goal exists
+        goal = await conn.fetchrow("SELECT 1 FROM goals WHERE id = $1", goal_id)
+        if not goal:
+            return {"error": "Goal not found"}
+
+        created = []
+        for t in tasks:
+            desc = t.get("description", "")
+            order = int(t.get("order", 0))
+            if not desc:
+                continue
+            row = await conn.fetchrow(
+                """INSERT INTO tasks (goal_id, description, status, "order")
+                   VALUES ($1, $2, 'pending', $3)
+                   RETURNING *""",
+                goal_id, desc, order,
+            )
+            created.append(_task_row(row))
+    return {"tasks": created, "count": len(created)}
+
+
+async def handle_update_task(params: dict) -> dict:
+    """Update a task's status, findings, or notes."""
+    task_id = params.get("task_id", "")
+    if not task_id:
+        return {"error": "task_id is required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM tasks WHERE id = $1", task_id)
+        if not row:
+            return {"error": "Task not found"}
+
+        status = params.get("status") or row["status"]
+        findings = params.get("findings")
+        notes = params.get("notes")
+        if findings is not None:
+            row["findings"] = findings
+        if notes is not None:
+            row["notes"] = notes
+
+        now_fields = ""
+        if status != row["status"]:
+            if status == "in_progress" and not row["started_at"]:
+                now_fields += ", started_at = NOW()"
+            if status in ("completed", "failed"):
+                now_fields += ", completed_at = NOW()"
+
+        await conn.execute(
+            f"""UPDATE tasks SET status = $1, findings = $2, notes = $3{now_fields}
+                WHERE id = $4""",
+            status, row["findings"], row["notes"], task_id,
+        )
+        row = await conn.fetchrow("SELECT * FROM tasks WHERE id = $1", task_id)
+
+    # Recalculate goal progress
+    progress = await _calc_goal_progress(row["goal_id"], pool)
+    return {"task": _task_row(row), "progress": progress}
+
+
+async def handle_get_tasks(params: dict) -> dict:
+    """Get all tasks for a goal."""
+    goal_id = params.get("goal_id", "")
+    if not goal_id:
+        return {"error": "goal_id is required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            'SELECT * FROM tasks WHERE goal_id = $1 ORDER BY "order"', goal_id
+        )
+    return {"tasks": [_task_row(r) for r in rows], "count": len(rows)}
+
+
+async def handle_get_goal_progress(params: dict) -> dict:
+    """Calculate progress for a goal."""
+    goal_id = params.get("goal_id", "")
+    if not goal_id:
+        return {"error": "goal_id is required"}
+
+    from core.db import get_pool
+
+    pool = await get_pool()
+    progress = await _calc_goal_progress(goal_id, pool)
+    return progress
+
+
+async def _calc_goal_progress(goal_id: str, pool) -> dict:
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT
+                 COUNT(*)::int AS total,
+                 COUNT(*) FILTER (WHERE status = 'completed')::int AS completed,
+                 COUNT(*) FILTER (WHERE status = 'failed')::int AS failed,
+                 COUNT(*) FILTER (WHERE status = 'in_progress')::int AS in_progress
+               FROM tasks WHERE goal_id = $1""",
+            goal_id,
+        )
+    total = row["total"]
+    completed = row["completed"]
+    percentage = round((completed / total) * 100) if total > 0 else 0
+    return {
+        "total": total,
+        "completed": completed,
+        "failed": row["failed"],
+        "in_progress": row["in_progress"],
+        "percentage": percentage,
     }
 
 

@@ -69,8 +69,24 @@ export interface Goal {
 }
 
 export interface Task {
+  id: string;
+  goal_id: string;
   description: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
   order: number;
+  findings: string;
+  notes: string;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface GoalProgress {
+  total: number;
+  completed: number;
+  failed: number;
+  in_progress: number;
+  percentage: number;
 }
 
 export type BridgeAgentState =
@@ -308,6 +324,28 @@ export class EvocationBridge {
   async generatePlan(objective: string): Promise<{ tasks: Task[]; count: number }> {
     const result = await this.call("generate_plan", { objective });
     return result as unknown as { tasks: Task[]; count: number };
+  }
+
+  // ═══════════ Task CRUD ═══════════
+
+  async createTasks(goalId: string, tasks: { description: string; order: number }[]): Promise<{ tasks: Task[]; count: number }> {
+    const result = await this.call("create_tasks", { goal_id: goalId, tasks });
+    return result as unknown as { tasks: Task[]; count: number };
+  }
+
+  async updateTask(taskId: string, status?: string, findings?: string, notes?: string): Promise<{ task: Task; progress: GoalProgress }> {
+    const result = await this.call("update_task", { task_id: taskId, status, findings, notes });
+    return result as unknown as { task: Task; progress: GoalProgress };
+  }
+
+  async getTasks(goalId: string): Promise<{ tasks: Task[]; count: number }> {
+    const result = await this.call("get_tasks", { goal_id: goalId });
+    return result as unknown as { tasks: Task[]; count: number };
+  }
+
+  async getGoalProgress(goalId: string): Promise<GoalProgress> {
+    const result = await this.call("get_goal_progress", { goal_id: goalId });
+    return result as unknown as GoalProgress;
   }
 
   /** Process buffered stdout lines. */

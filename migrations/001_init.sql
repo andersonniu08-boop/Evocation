@@ -75,6 +75,23 @@ CREATE TABLE goals (
 -- Link sessions to goals (nullable — existing sessions have no goal)
 ALTER TABLE conversations ADD COLUMN goal_id UUID REFERENCES goals(id);
 
+-- Task tracking (linked to goals)
+CREATE TABLE tasks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    goal_id UUID NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
+    description TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'in_progress', 'completed', 'failed')),
+    "order" INT NOT NULL DEFAULT 0,
+    findings TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_tasks_goal ON tasks (goal_id);
+
 -- Vector index
 CREATE INDEX idx_memories_embedding ON memories
     USING hnsw (embedding vector_cosine_ops)
