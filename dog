@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# MemoryDog launcher — activates venv automatically, works from symlinks
+# Evocation launcher — activates venv automatically
 SCRIPT="$(readlink -f "$0")"
 DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
-if [ -x "$DIR/.venv/bin/dog" ]; then
-    exec "$DIR/.venv/bin/dog" "$@"
+if [ -x "$DIR/.venv/bin/evocation" ]; then
+    exec "$DIR/.venv/bin/evocation" "$@"
 elif command -v python3 &>/dev/null; then
     exec python3 -m cli.main "$@"
 else
-    echo "MemoryDog: could not find dog binary or python3" >&2
+    echo "Evocation: could not find binary or python3" >&2
     exit 1
 fi

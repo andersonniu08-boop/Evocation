@@ -134,12 +134,12 @@ The extension ships with **phi4-mini** as the default model via Ollama. No API k
 A Textual-based terminal UI is available for development and debugging:
 
 ```bash
-dog chat              # Start the TUI with your default model
-dog chat --mock       # Start with mock provider (no API key)
-dog status            # Check system health
-dog config            # Interactive configuration
-dog serve             # JSON-RPC bridge (used by VS Code extension)
-dog instinct list     # List loaded instincts
+evocation                  # Start the TUI with your default model
+evocation --mock           # Start with mock provider (no API key)
+evocation status           # Check system health
+evocation config           # Interactive configuration
+evocation serve            # JSON-RPC bridge (used by VS Code extension)
+evocation instinct list    # List loaded instincts
 ```
 
 ---
@@ -196,7 +196,7 @@ code --install-extension evocation-0.1.0.vsix
 ### Verify
 
 ```bash
-dog status
+evocation status
 ```
 
 ---
@@ -244,7 +244,7 @@ evocation/
 │   ├── context.py         # Prompt construction
 │   └── config.py          # TOML config
 ├── cli/                   # Textual TUI (secondary interface)
-│   ├── main.py            # dog chat, config, serve, status
+│   ├── main.py            # evocation CLI
 │   └── ui/                # Chat screen, widgets
 ├── vscode/                # VS Code extension (primary interface)
 │   ├── src/

@@ -21,7 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-dog = "cli.main:main"
+evocation = "cli.main:main"
 
 [tool.ruff]
 line-length = 100

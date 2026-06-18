@@ -60,7 +60,7 @@ class ChatScreen(Screen):
             self.state = None
 
         conv = self.query_one("#conversation", RichLog)
-        conv.write("[bold blue]🐕 Evocation ready.[/]")
+        conv.write("[bold blue]⚡ Evocation ready.[/]")
 
         if self.state and self.state.workspace:
             try:
@@ -69,7 +69,7 @@ class ChatScreen(Screen):
                 count = await count_memories(self.state.workspace)
                 if count > 0:
                     conv.write(
-                        f"[dim]🐕 I remember this project."
+                        f"[dim]⚡ I remember this project."
                         f" {count} memories from previous sessions.[/]"
                     )
                     self.status.memory_count = count
@@ -108,7 +108,7 @@ class ChatScreen(Screen):
         from core.agent_loop import run_turn
 
         # Show initial status
-        conv.write("[dim italic]🐕 Running...[/]")
+        conv.write("[dim italic]⚡ Running...[/]")
         conv.scroll_end()
 
         # Streaming response widget at bottom of left pane
@@ -118,7 +118,7 @@ class ChatScreen(Screen):
         response_parts = []
 
         def on_status(msg: str):
-            conv.write(f"[dim]🐕 {msg}[/]")
+            conv.write(f"[dim]⚡ {msg}[/]")
             conv.scroll_end()
 
         def on_token(token: str):
@@ -181,8 +181,8 @@ class ChatScreen(Screen):
     def _show_status(self, conv: RichLog):
         if self.state and self.state.active_instincts:
             names = ", ".join(self.state.active_instincts)
-            conv.write(f"[dim]🐕 Instincts active: {names}[/]")
-        conv.write(f"[dim]🐕 Model: {self.model_name}[/]")
+            conv.write(f"[dim]⚡ Instincts active: {names}[/]")
+        conv.write(f"[dim]⚡ Model: {self.model_name}[/]")
 
     async def _refresh_memory_counts(self):
         try:

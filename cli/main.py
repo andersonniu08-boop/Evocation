@@ -5,20 +5,19 @@ import argparse
 
 def main():
     parser = argparse.ArgumentParser(
-        prog="dog", description="Evocation \u2014 memory-augmented coding agent"
+        prog="evocation",
+        description="Evocation — goal-oriented AI development agent",
     )
-    sub = parser.add_subparsers(dest="command")
-
-    chat_parser = sub.add_parser("chat", help="Start interactive chat session")
-    chat_parser.add_argument("-w", "--workspace", default=".", help="Workspace path")
-    chat_parser.add_argument("-m", "--model", help="Override model from config")
-    chat_parser.add_argument(
+    parser.add_argument("-w", "--workspace", default=".", help="Workspace path")
+    parser.add_argument("-m", "--model", help="Override model from config")
+    parser.add_argument(
         "--mock", action="store_true", help="Use mock provider (no API needed)"
     )
 
+    sub = parser.add_subparsers(dest="command")
     sub.add_parser("config", help="Interactive configuration wizard")
-
-    sub.add_parser("status", help="Show Evocation status")
+    sub.add_parser("status", help="Show system health")
+    sub.add_parser("install", help="Install evocation to ~/.local/bin")
 
     instinct_parser = sub.add_parser("instinct", help="Manage instincts")
     instinct_sub = instinct_parser.add_subparsers(dest="instinct_cmd")
@@ -31,41 +30,14 @@ def main():
     serve_parser = sub.add_parser("serve", help="Start JSON-RPC bridge for VS Code extension")
     serve_parser.add_argument("-w", "--workspace", default=".", help="Workspace path")
 
-    sub.add_parser("install", help="Install dog to ~/.local/bin")
-
     args = parser.parse_args()
 
-    if args.command == "chat":
-        from core.config import load_config
-
-        config = load_config()
-
-        if args.mock:
-            provider = _make_mock_provider()
-            model_name = "mock"
-            print("🐕 Starting in offline mode (--mock). No API key required.")
-        else:
-            provider, model_name = _make_provider_from_config(config, args.model)
-            result = provider.check_connection()
-            if result is not None:
-                print(f"  \u26a0 API key rejected. Starting in offline mode instead.\n  {result}\n")
-                provider = _make_mock_provider()
-                model_name = "mock"
-
-        from cli.app import EvocationApp
-
-        app = EvocationApp(workspace=args.workspace, provider=provider, model_name=model_name)
-        app.run()
-
-    elif args.command == "config":
+    if args.command == "config":
         _run_config_wizard()
-
     elif args.command == "status":
         _run_status()
-
     elif args.command == "instinct":
         _run_instinct_cmd(args)
-
     elif args.command == "serve":
         import asyncio
 
@@ -77,7 +49,27 @@ def main():
         _run_install()
 
     else:
-        parser.print_help()
+        # Default: start the TUI
+        from core.config import load_config
+
+        config = load_config()
+
+        if args.mock:
+            provider = _make_mock_provider()
+            model_name = "mock"
+            print("Starting in offline mode (--mock). No API key required.")
+        else:
+            provider, model_name = _make_provider_from_config(config, args.model)
+            result = provider.check_connection()
+            if result is not None:
+                print(f"  ⚠ API key rejected. Starting in offline mode instead.\n  {result}\n")
+                provider = _make_mock_provider()
+                model_name = "mock"
+
+        from cli.app import EvocationApp
+
+        app = EvocationApp(workspace=args.workspace, provider=provider, model_name=model_name)
+        app.run()
 
 
 def _make_mock_provider():
@@ -112,7 +104,7 @@ def _run_config_wizard():
     except Exception:
         config = Config()
 
-    print("\n\U0001f415 Evocation Configuration\n")
+    print("\n⚡ Evocation Configuration\n")
     print("Use LiteLLM model format: provider/model")
     print("Examples: anthropic/claude-sonnet-4-20250514, openai/gpt-4o, ollama/llama3\n")
     print("Press Enter to keep current values.\n")
@@ -132,10 +124,10 @@ def _run_config_wizard():
         config.provider.api_base = api_base
 
     save_config(config)
-    print("\n\U0001f415 Config saved to ~/.memorydog/config.toml")
+    print("\n⚡ Config saved to ~/.memorydog/config.toml")
     print("Embeddings: Ollama + nomic-embed-text (local)")
-    print("Run 'dog chat' to start.")
-    print("Run 'dog instinct list' to see your instincts.")
+    print("Run 'evocation' to start.")
+    print("Run 'evocation instinct list' to see your instincts.")
 
 
 def _run_instinct_cmd(args):
@@ -147,9 +139,9 @@ def _run_instinct_cmd(args):
     if args.instinct_cmd == "list":
         instincts = load_instincts()
         if not instincts:
-            print("\U0001f415 No instincts found.")
+            print("⚡ No instincts found.")
             return
-        print("\n\U0001f415 Instincts\n")
+        print("\n⚡ Instincts\n")
         for i, inst in enumerate(instincts, 1):
             triggers = ", ".join(inst.triggers)
             print(f"  {i}. {inst.name}")
@@ -163,7 +155,7 @@ def _run_instinct_cmd(args):
         name_lower = args.name.lower()
         for inst in instincts:
             if inst.name.lower() == name_lower:
-                print(f"\n\U0001f415 {inst.name}\n")
+                print(f"\n⚡ {inst.name}\n")
                 print(f"  Description: {inst.description}")
                 print(f"  Triggers: {', '.join(inst.triggers)}")
                 print(f"  Retrieval bias: {', '.join(inst.retrieval_bias)}")
@@ -180,7 +172,7 @@ def _run_instinct_cmd(args):
         subprocess.call([editor, path])
 
     else:
-        print("Usage: dog instinct [list|show <name>|edit]")
+        print("Usage: evocation instinct [list|show <name>|edit]")
 
 
 def _run_status():
@@ -190,12 +182,12 @@ def _run_status():
     try:
         config = load_config()
     except Exception:
-        print("No config found. Run 'dog config' first.")
+        print("No config found. Run 'evocation config' first.")
         return
 
     instincts = load_instincts()
 
-    print("\n\U0001f415 Evocation Status\n")
+    print("\n⚡ Evocation Status\n")
     print(f"  Provider: {config.provider.model}")
     print(f"  Embedding: {config.embedding.model}")
     print(f"  Instincts: {len(instincts)} loaded")
@@ -203,7 +195,7 @@ def _run_status():
     print("  Instincts file: ~/.memorydog/instincts.toml")
 
     if not config.provider.api_key:
-        print("\n  \u26a0 No API key set. Run 'dog config' to configure.")
+        print("\n  \u26a0 No API key set. Run 'evocation config' to configure.")
     else:
         masked = config.provider.api_key[:4] + "..." + config.provider.api_key[-4:]
         print(f"  API Key: {masked}")
@@ -284,8 +276,8 @@ def _run_install():
     bin_dir.mkdir(parents=True, exist_ok=True)
 
     repo_root = Path(__file__).resolve().parent.parent
-    launcher = repo_root / "dog"
-    link = bin_dir / "dog"
+    launcher = repo_root / "evocation"
+    link = bin_dir / "evocation"
 
     if not launcher.exists():
         print("  \u2753 Launcher script not found at repo root")
