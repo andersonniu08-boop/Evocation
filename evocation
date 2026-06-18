@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Evocation launcher — activates venv automatically
+SCRIPT="$(readlink -f "$0")"
+DIR="$(cd "$(dirname "$SCRIPT")" && pwd)"
+if [ -x "$DIR/.venv/bin/evocation" ]; then
+    exec "$DIR/.venv/bin/evocation" "$@"
+elif command -v python3 &>/dev/null; then
+    exec python3 -m cli.main "$@"
+else
+    echo "Evocation: could not find binary or python3" >&2
+    exit 1
+fi

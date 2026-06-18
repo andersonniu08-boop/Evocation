@@ -269,7 +269,7 @@ def _mask(key: str) -> str:
 
 
 def _run_install():
-    """Install the dog command to ~/.local/bin."""
+    """Install evocation command to ~/.local/bin."""
     from pathlib import Path
 
     bin_dir = Path.home() / ".local" / "bin"
@@ -289,7 +289,7 @@ def _run_install():
 
     try:
         link.symlink_to(launcher)
-        print(f"  \u2705 Installed dog to {link}")
+        print(f"  \u2705 Installed evocation to {link}")
         _check_path(bin_dir)
     except Exception as e:
         print(f"  \u2753 Install failed: {e}")
