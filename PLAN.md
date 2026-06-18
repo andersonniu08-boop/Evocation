@@ -52,6 +52,7 @@
 ## Phase 6: Goal Dashboard
 
 - [ ] Rebuild VS Code webview UI for Goal tracking
+- [ ] Sidebar: Sessions (primary, top), Goals (secondary), Context (bottom)
 - [ ] Goal list with status badges in sidebar
 - [ ] Goal detail editor tab: objective, plan checklist, activity feed
 - [ ] Progress visualization

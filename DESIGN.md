@@ -29,7 +29,8 @@ User → Goal objective
 
 | Panel | Content |
 |-------|---------|
-| **Goals** | Active + recent goals with status badges |
+| **Sessions** | Active + recent chat sessions (primary, top) |
+| **Goals** | Active + recent goals with status badges (secondary) |
 | **Context** | Searchable memory browser (pgvector hybrid retrieval) |
 
 ### Editor Tab (Goal View)
