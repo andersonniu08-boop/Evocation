@@ -26,12 +26,17 @@ Format:
 ]
 ```
 
-Valid types: design_decision, learned_fact, bug, user_preference,
-code_snippet, task_history, conversation
+Valid types (choose the most specific fit):
+- Structural (high priority): goal_definition, plan_architecture, task_result, past_failure
+- Technical: design_decision, bug, code_snippet, learned_fact
+- Meta: user_preference, task_history, conversation
+- Fallback: general
 
 Rules:
+- Structural types (goal_definition, plan_architecture, task_result, past_failure): importance > 0.7
 - Design decisions and bugs: importance > 0.6
 - User preferences: importance > 0.5
+- Use 'general' for any memory that doesn't fit the other types.
 - Skip small talk, greetings, transient state
 - Return empty array [] if nothing worth remembering
 
@@ -44,7 +49,7 @@ class MemoryRecord:
     id: str = ""
     content: str = ""
     summary: str = ""
-    memory_type: str = "conversation"
+    memory_type: str = "general"
     workspace_name: str = ""
     importance: float = 0.5
     access_count: int = 0
@@ -315,6 +320,7 @@ def _validate_memory_records(
 ) -> list[MemoryRecord]:
     """Convert parsed dicts to MemoryRecords, filtering invalid entries."""
     valid_types = {
+        "general",
         "design_decision",
         "learned_fact",
         "bug",
@@ -337,9 +343,9 @@ def _validate_memory_records(
         if not content or len(content) < 5:
             continue
 
-        memory_type = _safe_str(item.get("type"), "conversation")
+        memory_type = _safe_str(item.get("type"), "general")
         if memory_type not in valid_types:
-            memory_type = "conversation"
+            memory_type = "general"
 
         importance = _safe_float(item.get("importance"), 0.5)
         importance = max(0.0, min(1.0, importance))

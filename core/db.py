@@ -35,13 +35,30 @@ async def init_db():
 
 
 async def _run_migration(conn: asyncpg.Connection):
-    """Apply the migration if tables don't exist."""
+    """Apply all pending migrations in order, skipping already-applied ones."""
+    # Ensure tracking table exists
+    await conn.execute(
+        "CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW())"
+    )
+
+    # Bootstrap: if tables exist but _migrations is empty, mark 001 as applied
     row = await conn.fetchrow(
         "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'memories')"
     )
-    if row and row[0]:
-        return
+    tables_exist = row and row[0]
+    if tables_exist:
+        already_tracked = await conn.fetchrow("SELECT 1 FROM _migrations WHERE name = '001_init.sql'")
+        if not already_tracked:
+            await conn.execute("INSERT INTO _migrations (name) VALUES ('001_init.sql')")
 
-    migration = MIGRATIONS_DIR / "001_init.sql"
-    sql = migration.read_text()
-    await conn.execute(sql)
+    # Find all .sql migration files sorted by name
+    migration_files = sorted(MIGRATIONS_DIR.glob("*.sql"))
+
+    for mf in migration_files:
+        name = mf.name
+        row = await conn.fetchrow("SELECT 1 FROM _migrations WHERE name = $1", name)
+        if row:
+            continue  # already applied
+        sql = mf.read_text()
+        await conn.execute(sql)
+        await conn.execute("INSERT INTO _migrations (name) VALUES ($1)", name)

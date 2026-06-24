@@ -107,6 +107,7 @@ export class EvocationBridge {
   private onToken: ((token: string) => void) | null = null;
   private onKnowledge: ((memories: MemoryRecord[]) => void) | null = null;
   private onState: ((state: BridgeAgentState, detail: string) => void) | null = null;
+  private onApproval: ((tool: string, params: string, reasoning: string, goalId: string) => void) | null = null;
   private outputChannel: vscode.OutputChannel;
 
   constructor() {
@@ -394,6 +395,13 @@ export class EvocationBridge {
         this.onKnowledge((notif.params.memories as MemoryRecord[]) || []);
       } else if (notif.method === "state" && this.onState) {
         this.onState(notif.params.state as BridgeAgentState, notif.params.detail as string);
+      } else if (notif.method === "approval_required" && this.onApproval) {
+        this.onApproval(
+          notif.params.tool as string,
+          notif.params.params as string,
+          notif.params.reasoning as string,
+          notif.params.goal_id as string
+        );
       }
       return;
     }

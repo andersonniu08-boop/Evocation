@@ -14,111 +14,195 @@
   body {
     background:var(--bg); color:var(--fg);
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    font-size:12px; padding:8px;
+    font-size:12px; padding:0; user-select:none;
   }
-  .section { margin-bottom:12px; }
+
   .section-title {
-    font-size:11px; font-weight:600; color:var(--muted);
-    text-transform:uppercase; letter-spacing:0.5px;
-    padding:4px 0; border-bottom:1px solid var(--border);
-    margin-bottom:6px;
+    font-size:10px; font-weight:600; color:var(--muted);
+    text-transform:uppercase; letter-spacing:0.8px;
+    padding:10px 12px 6px;
   }
-  .goal-item {
-    padding:8px; border-radius:6px; cursor:pointer;
-    margin-bottom:4px; border:1px solid var(--border);
-    transition:background 0.15s;
+
+  /* Accordion */
+  .accordion { border-bottom:1px solid var(--border); }
+  .accordion-header {
+    display:flex; align-items:center; gap:8px;
+    padding:10px 12px; cursor:pointer; transition:background 0.1s;
+    border-top:1px solid var(--border);
   }
-  .goal-item:hover { background:var(--surface); }
-  .goal-item.active { border-color:var(--accent); }
-  .goal-name { font-weight:500; margin-bottom:2px; }
-  .goal-objective { font-size:11px; color:var(--muted); margin-bottom:4px; }
+  .accordion-header:hover { background:var(--surface); }
+  .accordion-header.active { background:rgba(0,122,204,0.08); }
+
+  .accordion-chevron {
+    width:14px; height:14px; flex-shrink:0;
+    transition:transform 0.15s; opacity:0.5;
+  }
+  .accordion-header.open .accordion-chevron { transform:rotate(90deg); opacity:1; }
+
+  .accordion-body { display:none; padding:0 12px 10px 34px; }
+  .accordion-header.open + .accordion-body { display:block; }
+
+  .goal-title-row { flex:1; min-width:0; }
+  .goal-name { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:12px; }
+  .goal-objective { font-size:10px; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .status-dot {
+    width:7px; height:7px; border-radius:50%; flex-shrink:0;
+    background:var(--muted);
+  }
+  .status-dot.in_progress { background:var(--accent); animation:pulse 1.5s infinite; }
+  .status-dot.completed { background:var(--success); }
+  .status-dot.failed { background:var(--error); }
+  .status-dot.pending { background:var(--muted); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* Progress inside accordion */
+  .progress-row { display:flex; align-items:center; gap:8px; margin-top:4px; }
   .progress-bar {
-    height:4px; background:var(--border); border-radius:2px;
-    margin-top:4px; overflow:hidden;
+    flex:1; height:3px; background:var(--border); border-radius:2px; overflow:hidden;
   }
-  .progress-fill {
-    height:100%; border-radius:2px; transition:width 0.3s;
-  }
+  .progress-fill { height:100%; border-radius:2px; transition:width 0.3s; }
   .progress-fill.completed { background:var(--success); }
   .progress-fill.in_progress { background:var(--accent); }
   .progress-fill.failed { background:var(--error); }
+  .progress-label { font-size:10px; color:var(--muted); white-space:nowrap; }
 
-  .status-badge {
-    display:inline-block; padding:1px 6px; border-radius:3px;
-    font-size:10px; font-weight:600; margin-left:4px;
+  /* Task preview in accordion */
+  .task-preview {
+    font-size:10px; color:var(--muted); padding:3px 0;
+    display:flex; align-items:center; gap:6px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
   }
-  .status-badge.pending { background:rgba(255,255,255,0.1); color:var(--muted); }
-  .status-badge.in_progress { background:rgba(0,122,204,0.15); color:var(--accent); }
-  .status-badge.completed { background:rgba(78,201,176,0.15); color:var(--success); }
-  .status-badge.failed { background:rgba(244,71,71,0.15); color:var(--error); }
+  .task-preview .mark {
+    font-size:9px; width:12px; flex-shrink:0; text-align:center;
+  }
+  .task-preview .mark.completed { color:var(--success); }
+  .task-preview .mark.in_progress { color:var(--accent); }
+  .task-preview .mark.failed { color:var(--error); }
 
   .btn {
-    display:block; width:100%; padding:6px; border-radius:4px;
+    display:block; width:100%; padding:7px; border-radius:4px;
     border:1px dashed var(--border); background:none; color:var(--accent);
-    cursor:pointer; font-size:11px; text-align:center; margin-top:4px;
+    cursor:pointer; font-size:11px; text-align:center; margin:8px 12px;
   }
   .btn:hover { background:var(--surface); }
 
-  .empty { color:var(--muted); font-size:11px; padding:8px 0; text-align:center; }
+  .empty { color:var(--muted); font-size:11px; padding:12px; text-align:center; }
 
-  .link { font-size:11px; color:var(--muted); padding:4px 0; cursor:pointer; }
-  .link:hover { color:var(--fg); }
-  .sep { border-top:1px solid var(--border); margin:8px 0; }
+  .link { font-size:11px; color:var(--muted); padding:6px 12px; cursor:pointer; display:block; }
+  .link:hover { color:var(--fg); background:var(--surface); }
+  .sep { border-top:1px solid var(--border); margin:6px 0; }
 </style>
 </head>
 <body>
 
-<div class="section">
-  <div class="section-title">Active Goals</div>
-  <div id="goalList"></div>
-  <button class="btn" onclick="vscode.postMessage({type:'command',command:'evocation.newSession'})">+ New Session</button>
-</div>
+<div class="section-title">Active Goals</div>
+<div id="goalList"></div>
+<button class="btn" onclick="vscode.postMessage({type:'command',command:'evocation.newSession'})">+ New Session</button>
 
 <div class="sep"></div>
 
-<div class="section">
-  <div class="section-title">Quick Actions</div>
-  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showMemoryPanel'})">Context Browser</div>
-  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showInstinctPanel'})">Instincts</div>
-  <div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.configure'})">Settings</div>
-</div>
+<div class="section-title">Quick Actions</div>
+<div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showMemoryPanel'})">Context Browser</div>
+<div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.showInstinctPanel'})">Instincts</div>
+<div class="link" onclick="vscode.postMessage({type:'command',command:'evocation.configure'})">Settings</div>
 
 <script>
   const vscode = acquireVsCodeApi();
+  let goalsData = [];
+
+  function esc(s) { const d=document.createElement("div"); d.textContent=s||''; return d.innerHTML; }
 
   function renderGoals(goals) {
+    goalsData = goals || [];
     const list = document.getElementById("goalList");
-    if (!goals || goals.length === 0) {
+    if (!goalsData.length) {
       list.innerHTML = '<div class="empty">No goals yet. Start a session to create one.</div>';
       return;
     }
-    list.innerHTML = goals.map(g => {
-      const statusClass = g.status || 'pending';
-      const progressClass = g.status === 'completed' ? 'completed' : 
-                           g.status === 'failed' ? 'failed' : 'in_progress';
+    list.innerHTML = goalsData.map((g, i) => {
+      const s = g.status || 'pending';
       const pc = g.percentage || 0;
+      const progressClass = s === 'completed' ? 'completed' : s === 'failed' ? 'failed' : 'in_progress';
       return `
-        <div class="goal-item ${g.active ? 'active' : ''}" onclick="vscode.postMessage({type:'openGoal',id:'${g.id}'})" title="${g.objective || ''}">
-          <div class="goal-name">
-            ${esc(g.title || 'Untitled')}
-            <span class="status-badge ${statusClass}">${statusClass}</span>
+        <div class="accordion">
+          <div class="accordion-header" data-index="${i}" onclick="toggleGoal(${i})">
+            <svg class="accordion-chevron" viewBox="0 0 16 16"><path fill="currentColor" d="M6 4l4 4-4 4"/></svg>
+            <div class="status-dot ${s}"></div>
+            <div class="goal-title-row">
+              <div class="goal-name">${esc(g.title || 'Untitled')}</div>
+              <div class="goal-objective">${esc((g.objective || '').slice(0, 60))}</div>
+              <div class="progress-row">
+                <div class="progress-bar"><div class="progress-fill ${progressClass}" style="width:${pc}%"></div></div>
+                <span class="progress-label">${g.completed||0}/${g.total||0} · ${pc}%</span>
+              </div>
+            </div>
           </div>
-          <div class="goal-objective">${esc((g.objective || '').slice(0, 80))}</div>
-          <div class="progress-bar">
-            <div class="progress-fill ${progressClass}" style="width:${pc}%"></div>
+          <div class="accordion-body" id="accordionBody${i}">
+            <div class="task-preview-list" id="taskPreview${i}">Loading tasks...</div>
+            <div style="margin-top:4px;font-size:10px;">
+              <a href="#" onclick="openDashboard('${esc(g.id)}');return false;" style="color:var(--accent);">Open Dashboard →</a>
+            </div>
           </div>
         </div>`;
     }).join('');
   }
 
-  function esc(s) { const d=document.createElement("div"); d.textContent=s||''; return d.innerHTML; }
+  async function toggleGoal(i) {
+    const header = document.querySelectorAll('.accordion-header')[i];
+    const open = header.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.accordion-header.open').forEach(h => h.classList.remove('open'));
+    if (!open) {
+      header.classList.add('open');
+      await loadTaskPreviews(goalsData[i].id, i);
+    }
+  }
+
+  async function loadTaskPreviews(goalId, i) {
+    const el = document.getElementById('taskPreview' + i);
+    try {
+      const result = await vscode.postMessage({ type: "getTasks", goalId });
+      // Response handled below in message listener
+      window._pendingTaskPreview = { goalId, index: i };
+    } catch {
+      el.innerHTML = '<div class="task-preview">—</div>';
+    }
+  }
+
+  function openDashboard(goalId) {
+    vscode.postMessage({ type: "openGoal", id: goalId });
+  }
+
+  function renderTaskPreviews(index, tasks) {
+    const el = document.getElementById('taskPreview' + index);
+    if (!el) return;
+    if (!tasks || !tasks.length) {
+      el.innerHTML = '<div class="task-preview">No tasks yet</div>';
+      return;
+    }
+    el.innerHTML = tasks.slice(0, 8).map(t => {
+      const s = t.status || 'pending';
+      const mark = s === 'completed' ? '✓' : s === 'failed' ? '✗' : s === 'in_progress' ? '●' : '○';
+      return `<div class="task-preview">
+        <span class="mark ${s}">${mark}</span>
+        <span>${esc((t.description || '').slice(0, 50))}</span>
+      </div>`;
+    }).join('');
+    if (tasks.length > 8) {
+      el.innerHTML += `<div class="task-preview">+${tasks.length - 8} more tasks...</div>`;
+    }
+  }
 
   window.addEventListener("message", e => {
     const msg = e.data;
     if (msg.type === "goals") renderGoals(msg.goals);
+    if (msg.type === "tasks" && window._pendingTaskPreview) {
+      renderTaskPreviews(window._pendingTaskPreview.index, msg.tasks);
+      window._pendingTaskPreview = null;
+    }
   });
 
-  // Request initial data
   vscode.postMessage({ type: "ready" });
 </script>
 </body>

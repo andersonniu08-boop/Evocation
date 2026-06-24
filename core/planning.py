@@ -2,6 +2,9 @@
 
 import json
 import re
+import time
+
+from core.logger import log_llm_request, log_info
 
 PLANNER_SYSTEM_PROMPT = """You are a senior software architect breaking down a coding objective into discrete, sequential, executable tasks.
 
@@ -55,7 +58,13 @@ async def generate_plan(objective: str, provider) -> list[dict]:
 
     for attempt in range(max_retries):
         try:
+            t0 = time.time()
             response = await provider.chat_async(messages, tools=None)
+            latency = (time.time() - t0) * 1000
+            log_llm_request("Planner", getattr(provider, "model", "unknown"),
+                           response.token_count, latency_ms=latency,
+                           purpose="generate_plan",
+                           metadata={"objective_len": len(objective), "attempt": attempt + 1})
             raw = response.content.strip() if response.content else ""
 
             if not raw:
@@ -64,6 +73,7 @@ async def generate_plan(objective: str, provider) -> list[dict]:
 
             tasks = _parse_plan_json(raw)
             if tasks and len(tasks) > 0:
+                log_info("Planner", f"Generated {len(tasks)} tasks", {"objective": objective[:100]})
                 return tasks
 
             last_error = "Failed to extract valid task list from response"

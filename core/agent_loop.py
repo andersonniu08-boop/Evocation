@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass, field
 
+from core.logger import log_retrieval
 from core.provider import BaseProvider, Message
 from core.retrieval import RetrievalBudget
 from core.tools import execute_tool, get_tool_definitions
@@ -308,6 +309,9 @@ async def _retrieve_context(
     if results:
         ids = [r["id"] for r in results]
         await log_retrieval_access(ids)
+        scores = [float(r.get("importance", 0.5)) for r in results]
+        log_retrieval("Memory", query, len(results), top_scores=scores,
+                     metadata={"workspace": workspace, "bias_terms": bias[:5]})
 
     total = await count_memories(workspace)
     if results:
@@ -334,6 +338,7 @@ async def _retrieve_context(
         "conversation": "### Previous Discussion",
         "user_preference": "### Preferences",
         "task_history": "### Previous Tasks",
+        "general": "### Other Context",
     }
 
     grouped: dict[str, list[str]] = {}
@@ -349,7 +354,7 @@ async def _retrieve_context(
         "past_failure", "plan_architecture", "goal_definition",
         "design_decision", "bug", "task_result",
         "code_snippet", "learned_fact", "conversation",
-        "user_preference", "task_history",
+        "user_preference", "task_history", "general",
     ]
     for mtype in priority_order:
         if mtype in grouped:

@@ -10,6 +10,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "read",
         "description": "Read a file from the local filesystem",
+        "requiresApproval": False,
         "parameters": {
             "type": "object",
             "properties": {
@@ -23,6 +24,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "write",
         "description": "Write content to a file (creates or overwrites)",
+        "requiresApproval": True,
         "parameters": {
             "type": "object",
             "properties": {
@@ -35,6 +37,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "edit",
         "description": "Perform exact string replacement in a file",
+        "requiresApproval": True,
         "parameters": {
             "type": "object",
             "properties": {
@@ -48,6 +51,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "bash",
         "description": "Execute a shell command",
+        "requiresApproval": True,
         "parameters": {
             "type": "object",
             "properties": {
@@ -60,6 +64,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "glob",
         "description": "Find files matching a glob pattern",
+        "requiresApproval": False,
         "parameters": {
             "type": "object",
             "properties": {
@@ -72,6 +77,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "grep",
         "description": "Search file contents with a regex pattern",
+        "requiresApproval": False,
         "parameters": {
             "type": "object",
             "properties": {
@@ -84,6 +90,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "memory_search",
         "description": "Search the agent's persistent memory",
+        "requiresApproval": False,
         "parameters": {
             "type": "object",
             "properties": {
@@ -93,6 +100,14 @@ TOOL_DEFINITIONS = [
         },
     },
 ]
+
+
+def tool_requires_approval(tool_name: str) -> bool:
+    """Check if a tool requires user approval before execution."""
+    for t in TOOL_DEFINITIONS:
+        if t["name"] == tool_name:
+            return t.get("requiresApproval", False)
+    return False  # Unknown tools default to safe (no approval)
 
 
 def get_tool_definitions() -> list:

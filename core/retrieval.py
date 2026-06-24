@@ -12,7 +12,7 @@ MEMORY_TYPE_MULTIPLIER = {
     "past_failure": 1.3,
     "plan_architecture": 1.25,
     "goal_definition": 1.25,
-    "task_result": 1.1,
+    "task_result": 1.15,
     "design_decision": 1.1,
     "bug": 1.15,
     "code_snippet": 1.05,
@@ -20,6 +20,7 @@ MEMORY_TYPE_MULTIPLIER = {
     "conversation": 1.0,
     "user_preference": 1.0,
     "task_history": 1.0,
+    "general": 1.0,
 }
 
 
